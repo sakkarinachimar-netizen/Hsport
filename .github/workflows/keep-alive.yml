@@ -1,0 +1,38 @@
+name: Supabase keep-alive
+
+# ยิง query เล็ก ๆ ไปที่ Supabase REST + Auth ทุก 2 วัน
+# เพื่อกัน free-tier project ถูก auto-pause (~7 วันที่ไม่มี activity)
+#
+# หมายเหตุ: anon key เป็น public key (อยู่ในเว็บที่ deploy แล้ว) — RLS คุมอยู่
+# ไม่จำเป็นต้องเก็บใน Secrets
+
+on:
+  schedule:
+    - cron: '0 3 */2 * *'   # ทุก 2 วัน เวลา 03:00 UTC (10:00 ICT)
+  workflow_dispatch: {}      # ให้กดรันมือใน Actions tab ได้
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ping Supabase REST + Auth
+        env:
+          PF_URL:  'https://kmkbzdpwcsqwghkxxpst.supabase.co'
+          PF_ANON: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtta2J6ZHB3Y3Nxd2doa3h4cHN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkwMDY5NDAsImV4cCI6MjA5NDU4Mjk0MH0.AZKPxK0ZTDgfEw-jr9bqVRgRhxUynBLl2yckr-rGV9w'
+        run: |
+          set -euo pipefail
+          echo "Pinging Supabase project (kmkbzdpwcsqwghkxxpst)..."
+
+          # 1) REST → แตะ database (RLS จะคืน [] เพราะไม่มี user session แต่ยังนับเป็น activity)
+          code=$(curl -sS -o /tmp/rest.out -w '%{http_code}' \
+            "$PF_URL/rest/v1/internship_sites?select=id&limit=1" \
+            -H "apikey: $PF_ANON" -H "Authorization: Bearer $PF_ANON")
+          echo "REST  → HTTP $code"
+          test "$code" = "200"
+
+          # 2) Auth health check (จะ wake Auth service)
+          curl -fsS "$PF_URL/auth/v1/health" -H "apikey: $PF_ANON" >/dev/null
+          echo "Auth  → OK"
+
+          echo "✓ keep-alive done"

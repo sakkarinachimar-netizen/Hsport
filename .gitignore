@@ -1,0 +1,14 @@
+# Local Netlify folder
+.netlify/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Logs / temp
+*.log
+.cache/

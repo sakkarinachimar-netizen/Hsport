@@ -1,0 +1,16 @@
+# PDSHS e-Portfolio — static site (no build step, in-browser Babel)
+[build]
+  publish = "."
+  command = ""
+
+[[headers]]
+  for = "/*.jsx"
+  [headers.values]
+    Content-Type = "application/javascript"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
