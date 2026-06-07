@@ -1,64 +1,13 @@
 /* internship.jsx — Internship (ฝึกงาน) system: Student / Teacher / Admin views */
 
 /* ---------- Data ---------- */
-const INTERNSHIP_SITES = [
-  { id: "s1", name: "โรงพยาบาลจุฬาลงกรณ์", dept: "แผนกพยาธิวิทยา", area: "กรุงเทพฯ",
-    field: "การแพทย์", cap: 4, taken: 2,
-    desc: "ฝึกในห้องปฏิบัติการพยาธิวิทยา เรียนรู้การตรวจชิ้นเนื้อ การย้อมสี การวิเคราะห์เซลล์",
-    skills: ["ใฝ่รู้และสืบเสาะ","การคิดขั้นสูง"], tag:"hospital", status:"open" },
-  { id: "s2", name: "โรงพยาบาลศิริราช", dept: "แผนกเภสัชกรรม", area: "กรุงเทพฯ",
-    field: "เภสัชกรรม", cap: 3, taken: 1,
-    desc: "เรียนรู้กระบวนการจ่ายยา การให้คำปรึกษาผู้ป่วย ระบบเฝ้าระวังอาการไม่พึงประสงค์",
-    skills: ["การเข้าอกเข้าใจผู้อื่น","จริยธรรมและความรับผิดชอบ"], tag:"hospital", status:"open" },
-  { id: "s3", name: "ศูนย์วิทยาศาสตร์การแพทย์ที่ 1", dept: "ห้องปฏิบัติการอณูชีววิทยา", area: "นนทบุรี",
-    field: "ห้องปฏิบัติการ", cap: 6, taken: 6,
-    desc: "เทคนิคทางอณูชีววิทยา PCR sequencing การวิเคราะห์เชิงโมเลกุลของเชื้อก่อโรค",
-    skills: ["ใฝ่รู้และสืบเสาะ","การคิดขั้นสูง"], tag:"lab", status:"full" },
-  { id: "s4", name: "ห้องปฏิบัติการชีวเคมี คณะวิทยาศาสตร์ จุฬาฯ", dept: "ภาควิชาชีวเคมี", area: "กรุงเทพฯ",
-    field: "ห้องปฏิบัติการ", cap: 4, taken: 1,
-    desc: "ฝึกเทคนิคโครมาโทกราฟี เอนไซม์แอสเซย์ การทำงานในห้องวิจัยจริง",
-    skills: ["ใฝ่รู้และสืบเสาะ","ยืดหยุ่นและปรับตัว"], tag:"lab", status:"open" },
-  { id: "s5", name: "กรมวิทยาศาสตร์การแพทย์", dept: "สำนักคุ้มครองผู้บริโภค", area: "นนทบุรี",
-    field: "สาธารณสุข", cap: 3, taken: 0,
-    desc: "การตรวจวิเคราะห์คุณภาพผลิตภัณฑ์สุขภาพ การประกันคุณภาพห้องปฏิบัติการ",
-    skills: ["จริยธรรมและความรับผิดชอบ","การคิดขั้นสูง"], tag:"gov", status:"open" },
-  { id: "s6", name: "โรงพยาบาลรามาธิบดี", dept: "งานบริการพยาธิวิทยาคลินิก", area: "กรุงเทพฯ",
-    field: "การแพทย์", cap: 4, taken: 3,
-    desc: "ฝึกการตรวจเลือด ปัสสาวะ เคมีคลินิก จุลชีววิทยาคลินิก",
-    skills: ["การคิดขั้นสูง","ใฝ่รู้และสืบเสาะ"], tag:"hospital", status:"open" },
-  { id: "s7", name: "ห้องปฏิบัติการชีวโมเลกุล มศว", dept: "คณะแพทยศาสตร์", area: "กรุงเทพฯ",
-    field: "ห้องปฏิบัติการ", cap: 5, taken: 2,
-    desc: "เทคนิคปฏิบัติการในงานวิจัยทางการแพทย์ การออกแบบและรันการทดลอง",
-    skills: ["ใฝ่รู้และสืบเสาะ","ยืดหยุ่นและปรับตัว"], tag:"lab", status:"open" },
-  { id: "s8", name: "ศูนย์การแพทย์สมเด็จพระเทพรัตน์", dept: "งานเวชสารสนเทศ", area: "กรุงเทพฯ",
-    field: "การแพทย์", cap: 2, taken: 0,
-    desc: "ระบบข้อมูลสุขภาพ การจัดเก็บข้อมูลผู้ป่วย ระบบ HIS",
-    skills: ["จริยธรรมและความรับผิดชอบ","การจัดการตนเอง"], tag:"hospital", status:"open" },
-];
-
-const INTERNSHIP_PERIODS = [
-  { id: "p1", name: "ฤดูร้อน 2568",       start:"2568-03-15", end:"2568-04-12", weeks: 4,
-    timeStart: "08:30", timeEnd: "16:30", days: "จ.–ศ.", hoursPerDay: 8,
-    label:"ภาคฤดูร้อน (มี.ค.–เม.ย. 2568)", open:true },
-  { id: "p2", name: "ปิดเทอม 1 ปี 2568",   start:"2568-10-06", end:"2568-10-20", weeks: 2,
-    timeStart: "09:00", timeEnd: "16:00", days: "จ.–ศ.", hoursPerDay: 7,
-    label:"ปิดภาคเรียนที่ 1 (ต.ค. 2568)", open:true },
-  { id: "p3", name: "ปิดเทอม 2 ปี 2568",   start:"2569-03-10", end:"2569-03-24", weeks: 2,
-    timeStart: "09:00", timeEnd: "16:00", days: "จ.–ศ.", hoursPerDay: 7,
-    label:"ปิดภาคเรียนที่ 2 (มี.ค. 2569)", open:false },
-];
-
+const INTERNSHIP_SITES = [];
+const INTERNSHIP_PERIODS = [];
 const INTERNSHIP_TAG_COLORS = { hospital:"red", lab:"blue", gov:"purple" };
 const INTERNSHIP_TAG_LABELS = { hospital:"โรงพยาบาล", lab:"ห้องปฏิบัติการ", gov:"หน่วยงานรัฐ" };
 
 /* Mock current applications (shared across views) */
-const initialApps = [
-  { id:"app1", studentId:"65001235", student:"ภัทรพล วิทยา",   siteId:"s1", periodId:"p1", status:"approved", advisor:"อ.สมชาย ใจดี", reflectionDone:false, evaluated:false },
-  { id:"app2", studentId:"65001241", student:"ณัฐวดี สมบัติ",   siteId:"s4", periodId:"p1", status:"approved", advisor:"อ.สมชาย ใจดี", reflectionDone:true,  evaluated:false },
-  { id:"app3", studentId:"65001247", student:"กิตติพงศ์ พิทักษ์",siteId:"s2", periodId:"p1", status:"pending",  advisor:"อ.สมชาย ใจดี", reflectionDone:false, evaluated:false },
-  { id:"app4", studentId:"65001242", student:"ปวีณา ขยันดี",   siteId:"s6", periodId:"p2", status:"approved", advisor:"อ.สมชาย ใจดี", reflectionDone:true,  evaluated:true,  score:4.5 },
-];
-
+const initialApps = [];
 /* ---------- Student: Internship ---------- */
 function StudentInternship({ toast }) {
   const [tab, setTab] = React.useState("browse");

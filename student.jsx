@@ -10,111 +10,33 @@ const STUDENT_NAV = [
   { key: "profile", label: "โปรไฟล์" },
 ];
 
-/* ---------- Mock data ---------- */
-const SELF = {
-  studentId: "65001234",
-  name: "นางสาวสุดา ใจดี",
-  classroom: "ม.5/2",
-  school: "โรงเรียนสาธิตมหาวิทยาลัยศรีนครินทรวิโรฒ ปทุมวัน",
-  email: "suda.jaidee@student.swu.ac.th",
-  phone: "081-234-5678",
-  advisor: "อ.ดร.สมชาย ใจดี",
-};
+/* ---------- Default empty data (จะถูกแทนที่ด้วยข้อมูลจริงจาก DB/profile) ---------- */
+function currentProfile() {
+  const u = window.pfCurrentUser || {};
+  return {
+    studentId: u.student_code || "",
+    name: u.name || "",
+    classroom: u.grade || "",
+    school: "โรงเรียนสาธิตมหาวิทยาลัยศรีนครินทรวิโรฒ ปทุมวัน",
+    email: u.email || "",
+    phone: u.phone || "",
+    advisor: u.advisor_name || "",
+  };
+}
+const SELF = currentProfile();
 
-/* Map current competency levels (1-5) per student, keyed to CORE/SPEC keys */
-const MY_LEVELS = {
-  self: 3, think: 3, comm: 4, team: 3, civic: 3, nature: 3,
-  inquiry: 4, empath: 3, ethics: 3, resil: 3,
-};
-
+/* Default level = 0 ทุกสมรรถนะ จนกว่าจะมีการประเมินจริง */
+const MY_LEVELS = Object.fromEntries(
+  [...CORE_COMPETENCIES, ...SPEC_COMPETENCIES].map(c => [c.key, 0])
+);
 const RADAR_LABELS = [
   ...CORE_COMPETENCIES.map(c => c.short),
   ...SPEC_COMPETENCIES.map(c => c.short),
 ];
-const RADAR_VALUES = [
-  ...CORE_COMPETENCIES.map(c => MY_LEVELS[c.key]),
-  ...SPEC_COMPETENCIES.map(c => MY_LEVELS[c.key]),
-];
+const RADAR_VALUES = RADAR_LABELS.map(() => 0);
 
-const PORTFOLIO = [
-  {
-    id: "p1",
-    title: "โครงงานวิจัยเรื่องสมุนไพรไทยกับการรักษาโรค",
-    desc: "การศึกษาประสิทธิภาพของสมุนไพรไทย 5 ชนิด ในการรักษาโรคเบาหวาน ผ่านการทดลองและวิเคราะห์ข้อมูล",
-    date: "15 ตุลาคม 2567",
-    files: "เอกสาร PDF, วิดีโอนำเสนอ",
-    driveLinks: [
-      parseDriveLink("https://drive.google.com/file/d/1A2B3C4D5E6F7G8H9I0JKLMNOPqrstu1——/view"),
-      parseDriveLink("https://docs.google.com/document/d/2X3Y4Z5A6B7C8D9E0FGHIJKLMNOPqrst——/edit"),
-      parseDriveLink("https://docs.google.com/presentation/d/3F4G5H6I7J8K9L0M1NOPQRSTUVwxyz12——/edit"),
-    ],
-    tags: [{l:"ใฝ่รู้และสืบเสาะ", k:"green"},{l:"การคิดขั้นสูง", k:"orange"},{l:"การสื่อสาร", k:"pink"}],
-    status: { kind: "green", label: "✅ ผ่าน (ระดับ 4 — ดีมาก)" },
-    note: "ประเมินโดย: อ.สมชาย ใจดี",
-    score: 4,
-    semester: "1/2567",
-  },
-  {
-    id: "p2",
-    title: "การนำเสนอหน้าชั้นเรียน: ระบบหายใจของมนุษย์",
-    desc: "การนำเสนอแบบกลุ่มเกี่ยวกับโครงสร้างและหน้าที่ของระบบหายใจ พร้อมการสาธิตและตอบคำถาม",
-    date: "12 ตุลาคม 2567",
-    files: "สไลด์นำเสนอ, วิดีโอบันทึก",
-    driveLinks: [
-      parseDriveLink("https://docs.google.com/presentation/d/4G5H6I7J8K9L0M1N2OPQRSTUVwxyz1234—/edit"),
-      parseDriveLink("https://drive.google.com/file/d/5H6I7J8K9L0M1N2O3PQRSTUVwxyzabc4—/view"),
-    ],
-    tags: [{l:"การสื่อสาร", k:"pink"},{l:"การรวมพลังทำงานเป็นทีม", k:"orange"},{l:"การเข้าอกเข้าใจผู้อื่น", k:"teal"}],
-    status: { kind: "amber", label: "⌛ รอตรวจ" },
-    note: "ส่งให้: อ.วิมล สุขใส",
-    semester: "1/2567",
-  },
-  {
-    id: "p3",
-    title: "บทสะท้อนการเรียนรู้: การพัฒนาตนเองในภาคเรียน",
-    desc: "การสะท้อนคิดเกี่ยวกับการเรียนรู้และพัฒนาตนเองในด้านต่างๆ ตลอดภาคเรียนที่ผ่านมา",
-    date: "8 ตุลาคม 2567",
-    files: "เอกสาร Word",
-    driveLinks: [
-      parseDriveLink("https://docs.google.com/document/d/6I7J8K9L0M1N2O3P4QRSTUVwxyzabcd5—/edit"),
-    ],
-    tags: [{l:"การจัดการตนเอง", k:"teal"},{l:"ยืดหยุ่นและปรับตัว", k:"green"}],
-    status: { kind: "purple", label: "🔁 ต้องปรับปรุง (ระดับ 2 — กำลังพัฒนา)" },
-    note: "ความเห็น: ควรเพิ่มตัวอย่างเฉพาะเจาะจงมากขึ้น",
-    semester: "1/2567",
-  },
-];
-
-const ACTIVITIES = [
-  {
-    id: "a1",
-    title: "ค่ายวิทยาศาสตร์สุขภาพ",
-    desc: "ค่าย 3 วัน 2 คืน เรียนรู้เกี่ยวกับการวิจัยทางการแพทย์และสาธารณสุข",
-    date: "22-24 พฤศจิกายน 2567",
-    place: "ศูนย์วิทยาศาสตร์ มหาวิทยาลัย",
-    seats: "เหลือที่นั่ง 15/30",
-    cta: { label: "ลงทะเบียน", kind: "btn-purple" }
-  },
-  {
-    id: "a2",
-    title: "เวทีนำเสนอผลงานวิจัย",
-    desc: "นำเสนอโครงงานวิจัยหน้าคณะกรรมการและรับฟังข้อเสนอแนะ",
-    date: "18 พฤศจิกายน 2567",
-    place: "ห้องประชุมใหญ่",
-    time: "13:00-16:00 น.",
-    cta: { label: "ลงทะเบียน", kind: "btn-primary" }
-  },
-  {
-    id: "a3",
-    title: "Workshop: เทคนิคการนำเสนองานวิจัย",
-    desc: "เวิร์กชอปเรียนรู้เทคนิคการนำเสนอข้อมูลวิจัยอย่างมีประสิทธิภาพ",
-    date: "15 พฤศจิกายน 2567",
-    place: "ห้องเรียน 405",
-    time: "09:00-12:00 น.",
-    cta: { label: "ลงทะเบียน", kind: "btn-teal" }
-  },
-];
-
+const PORTFOLIO = [];
+const ACTIVITIES = [];
 /* ---------- Home ---------- */
 function StudentHome({ go, toast }) {
   return (
@@ -122,8 +44,8 @@ function StudentHome({ go, toast }) {
       <div className="hero">
         <div className="avatar">👩‍🎓</div>
         <div>
-          <h1>สวัสดี {SELF.name}</h1>
-          <p>ชั้น {SELF.classroom} • {SELF.school}</p>
+          <h1>สวัสดี {(window.pfCurrentUser||{}).name || "นักเรียน"}</h1>
+          <p>{((window.pfCurrentUser||{}).grade ? "ชั้น "+window.pfCurrentUser.grade+" • " : "")}โรงเรียนสาธิตมหาวิทยาลัยศรีนครินทรวิโรฒ ปทุมวัน</p>
           <a>บันทึกหลักฐานจริงของการเรียนรู้ แล้วดูพัฒนาการของคุณอย่างโปร่งใส</a>
         </div>
       </div>
@@ -134,14 +56,14 @@ function StudentHome({ go, toast }) {
           <div className="muted small" style={{margin:"-6px 0 10px"}}>สมรรถนะหลัก (Core Competencies)</div>
           {CORE_COMPETENCIES.map(c => (
             <div className="comp-row" key={c.key}>
-              <div className="lbl"><span>{c.short}</span><span className="muted">{LEVEL_NAMES[MY_LEVELS[c.key]-1].label} ({MY_LEVELS[c.key]}/5)</span></div>
+              <div className="lbl"><span>{c.short}</span><span className="muted">{MY_LEVELS[c.key] > 0 ? `${LEVEL_NAMES[MY_LEVELS[c.key]-1].label} (${MY_LEVELS[c.key]}/5)` : "ยังไม่ประเมิน"}</span></div>
               <ProgressBar value={MY_LEVELS[c.key]} max={5}/>
             </div>
           ))}
           <div className="muted small mt-5" style={{marginBottom:6}}>สมรรถนะเฉพาะวิชาเอก (Professional)</div>
           {SPEC_COMPETENCIES.map(c => (
             <div className="comp-row" key={c.key}>
-              <div className="lbl"><span>{c.short}</span><span className="muted">{LEVEL_NAMES[MY_LEVELS[c.key]-1].label} ({MY_LEVELS[c.key]}/5)</span></div>
+              <div className="lbl"><span>{c.short}</span><span className="muted">{MY_LEVELS[c.key] > 0 ? `${LEVEL_NAMES[MY_LEVELS[c.key]-1].label} (${MY_LEVELS[c.key]}/5)` : "ยังไม่ประเมิน"}</span></div>
               <ProgressBar value={MY_LEVELS[c.key]} max={5}/>
             </div>
           ))}
@@ -397,17 +319,8 @@ function StudentUpload({ toast, go }) {
           <DriveLinkInput value={form.driveLinks} onChange={(v)=>upd("driveLinks", v)}/>
         </div>
 
-        <div className="field">
-          <label>ส่งให้อาจารย์ผู้ประเมิน</label>
-          <select className="select">
-            <option>อ.สมชาย ใจดี (อาจารย์ที่ปรึกษา)</option>
-            <option>อ.วิมล สุขใส</option>
-            <option>อ.อนงค์ บุญมา</option>
-          </select>
-        </div>
-
         <div className="row-between mt-3">
-          <span className="muted small">ระบบจะส่งคำขอประเมินอัตโนมัติ</span>
+          <span className="muted small">ระบบจะส่งให้อาจารย์ผู้ประเมินตรวจอัตโนมัติ</span>
           <div className="row gap-3">
             <button type="button" className="btn btn-ghost" onClick={()=>go("home")}>ยกเลิก</button>
             <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? "กำลังส่ง…" : "ส่งหลักฐาน"}</button>
@@ -603,7 +516,7 @@ function StudentActivities({ toast }) {
 
 /* ---------- Profile ---------- */
 function StudentProfile({ toast, onLogout }) {
-  const [u, setU] = React.useState(SELF);
+  const [u, setU] = React.useState(currentProfile());
   const upd = (k, v) => setU(s => ({ ...s, [k]: v }));
   const save = () => toast("บันทึกการเปลี่ยนแปลงเรียบร้อย");
 
@@ -644,19 +557,16 @@ function StudentProfile({ toast, onLogout }) {
           <div className="card">
             <h3>สถิติการใช้งาน</h3>
             <div className="stat-grid">
-              <div className="stat stat-blue"><div className="num">15</div><div className="lbl">หลักฐานทั้งหมด</div></div>
-              <div className="stat stat-green"><div className="num">12</div><div className="lbl">ผ่านการประเมิน</div></div>
-              <div className="stat stat-amber"><div className="num">2</div><div className="lbl">รอการตรวจ</div></div>
-              <div className="stat stat-purple"><div className="num">3.8</div><div className="lbl">คะแนนเฉลี่ย</div></div>
+              <div className="stat stat-blue"><div className="num">—</div><div className="lbl">หลักฐานทั้งหมด</div></div>
+              <div className="stat stat-green"><div className="num">—</div><div className="lbl">ผ่านการประเมิน</div></div>
+              <div className="stat stat-amber"><div className="num">—</div><div className="lbl">รอการตรวจ</div></div>
+              <div className="stat stat-purple"><div className="num">—</div><div className="lbl">คะแนนเฉลี่ย</div></div>
             </div>
           </div>
 
           <div className="card mt-4">
             <h3>ความก้าวหน้าล่าสุด</h3>
-            <div className="row-between" style={{padding:"6px 0"}}><span>การจัดการตนเอง</span><span style={{color:"#10b981",fontWeight:600}}>+0.5</span></div>
-            <div className="row-between" style={{padding:"6px 0"}}><span>การสื่อสาร</span><span style={{color:"#10b981",fontWeight:600}}>+0.3</span></div>
-            <div className="row-between" style={{padding:"6px 0"}}><span>ใฝ่รู้และสืบเสาะ</span><span className="muted">คงที่</span></div>
-            <div className="row-between" style={{padding:"6px 0"}}><span>ยืดหยุ่นและปรับตัว</span><span style={{color:"#10b981",fontWeight:600}}>+0.2</span></div>
+            <div className="muted" style={{padding:"14px 0"}}>เริ่มอัปโหลดหลักฐานเพื่อเห็นพัฒนาการของแต่ละสมรรถนะ</div>
           </div>
 
           <ChangePasswordCard toast={toast}/>

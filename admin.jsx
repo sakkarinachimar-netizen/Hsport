@@ -10,95 +10,53 @@ const ADMIN_NAV = [
   { key: "a-settings",  label: "ตั้งค่าระบบ" },
 ];
 
-const ADMIN_SELF = {
-  staffId: "ADM-001",
-  name: "นายอนันต์ ระบบดี",
-  role: "ผู้ดูแลระบบ",
-  email: "admin@pdshs.swu.ac.th",
-};
-
-const ALL_USERS = [
-  { id:"65001234", name:"สุดา ใจดี",        role:"นักเรียน",   room:"ม.5/2", status:"active",  last:"2 ชม.ที่แล้ว" },
-  { id:"65001235", name:"ภัทรพล วิทยา",    role:"นักเรียน",   room:"ม.5/2", status:"active",  last:"เมื่อวาน" },
-  { id:"65001241", name:"ณัฐวดี สมบัติ",    role:"นักเรียน",   room:"ม.5/2", status:"active",  last:"1 วัน" },
-  { id:"65001244", name:"ธนพร แก้วใส",    role:"นักเรียน",   room:"ม.5/2", status:"inactive", last:"3 สัปดาห์" },
-  { id:"65001247", name:"กิตติพงศ์ พิทักษ์", role:"นักเรียน",  room:"ม.5/2", status:"active",  last:"3 วัน" },
-  { id:"65001242", name:"ปวีณา ขยันดี",    role:"นักเรียน",   room:"ม.6/1", status:"active",  last:"5 วัน" },
-  { id:"T-0238",   name:"อ.ดร.สมชาย ใจดี",  role:"อาจารย์",    room:"—",      status:"active",  last:"30 นาที" },
-  { id:"T-0240",   name:"อ.วิมล สุขใส",     role:"อาจารย์",    room:"—",      status:"active",  last:"4 ชม." },
-  { id:"T-0241",   name:"อ.อนงค์ บุญมา",    role:"อาจารย์",    room:"—",      status:"active",  last:"6 ชม." },
-  { id:"ADM-001",  name:"นายอนันต์ ระบบดี",  role:"ผู้ดูแลระบบ", room:"—",      status:"active",  last:"ตอนนี้" },
-];
-
-const ADMIN_ACTIVITIES = [
-  { id:"a1", title:"ค่ายวิทยาศาสตร์สุขภาพ",   date:"22-24 พ.ย. 2567", category:"ค่าย",       reg:15, cap:30, status:"open" },
-  { id:"a2", title:"เวทีนำเสนอผลงานวิจัย",    date:"18 พ.ย. 2567",     category:"การนำเสนอ", reg:28, cap:60, status:"open" },
-  { id:"a3", title:"Workshop: เทคนิคการนำเสนอ", date:"15 พ.ย. 2567",     category:"อบรม",      reg:20, cap:25, status:"open" },
-  { id:"a4", title:"สัมมนาวิจัยภายในห้อง ม.5",  date:"30 ต.ค. 2567",     category:"การนำเสนอ", reg:24, cap:24, status:"closed" },
-];
-
+const ADMIN_SELF = {};
+const ALL_USERS = [];
+const ADMIN_ACTIVITIES = [];
 /* ---------- Admin Home ---------- */
 function AdminHome({ go }) {
+  const u = window.pfCurrentUser || {};
+  const [counts, setCounts] = React.useState({ student: null, teacher: null, admin: null });
+  React.useEffect(() => {
+    if (!window.PfUsers || !window.PF_SUPABASE_READY) return;
+    (async () => {
+      try {
+        const all = await window.PfUsers.list();
+        const c = { student: 0, teacher: 0, admin: 0 };
+        (all || []).forEach(x => { if (c[x.role] !== undefined) c[x.role]++; });
+        setCounts(c);
+      } catch (e) { /* leave as null */ }
+    })();
+  }, []);
+  const total = (counts.student || 0) + (counts.teacher || 0) + (counts.admin || 0);
+
   return (
     <div className="page">
       <div className="hero">
         <Avatar emoji="🛡️" size={64} gradient="linear-gradient(135deg,#fda4af,#fb7185)"/>
         <div>
-          <h1>สวัสดี {ADMIN_SELF.name}</h1>
+          <h1>สวัสดี {u.name || "ผู้ดูแลระบบ"}</h1>
           <p>ผู้ดูแลระบบ • PDS_HS Portfolio System</p>
           <a>ภาพรวมการใช้งานระบบและสิทธิ์ผู้ใช้</a>
         </div>
       </div>
 
       <div className="stat-grid mt-5" style={{gridTemplateColumns:"repeat(4,1fr)"}}>
-        <div className="stat stat-blue"><div className="num">312</div><div className="lbl">นักเรียนทั้งหมด</div></div>
-        <div className="stat stat-purple"><div className="num">24</div><div className="lbl">อาจารย์ผู้ประเมิน</div></div>
-        <div className="stat stat-green"><div className="num">1,486</div><div className="lbl">หลักฐานที่ส่ง</div></div>
-        <div className="stat stat-amber"><div className="num">87%</div><div className="lbl">อัตราการประเมินตรงเวลา</div></div>
-      </div>
-
-      <div className="two-col mt-5">
-        <div className="card">
-          <div className="row-between"><h2 className="mb-0">การใช้งานรายสัปดาห์</h2>
-            <Pill kind="green">+12% WoW</Pill>
-          </div>
-          <BarChart
-            data={[
-              {l:"จ.", v: 86},
-              {l:"อ.", v: 102},
-              {l:"พ.", v: 145},
-              {l:"พฤ.", v: 138},
-              {l:"ศ.", v: 162},
-              {l:"ส.", v: 64},
-              {l:"อา.", v: 41},
-            ]}
-          />
-          <div className="muted small mt-3">กราฟแสดงจำนวนการ Login รายวัน เฉลี่ย 105 ครั้ง/วัน</div>
-        </div>
-
-        <div className="card">
-          <h2>การกระจายตามบทบาท</h2>
-          <Donut
-            slices={[
-              { label:"นักเรียน",     value: 312, color:"#3b82f6" },
-              { label:"อาจารย์",      value: 24,  color:"#14b8a6" },
-              { label:"ผู้ดูแลระบบ",  value: 3,   color:"#ec4899" },
-            ]}/>
-        </div>
+        <div className="stat stat-blue"><div className="num">{counts.student ?? "—"}</div><div className="lbl">นักเรียน</div></div>
+        <div className="stat stat-purple"><div className="num">{counts.teacher ?? "—"}</div><div className="lbl">อาจารย์ผู้ประเมิน</div></div>
+        <div className="stat stat-green"><div className="num">{counts.admin ?? "—"}</div><div className="lbl">ผู้ดูแลระบบ</div></div>
+        <div className="stat stat-amber"><div className="num">{total || "—"}</div><div className="lbl">ผู้ใช้ทั้งหมด</div></div>
       </div>
 
       <div className="card mt-5">
-        <h2>กิจกรรมระบบล่าสุด (Audit Log)</h2>
-        <table className="table">
-          <thead><tr><th style={{width:140}}>เวลา</th><th>ผู้ใช้</th><th>การกระทำ</th><th>รายละเอียด</th></tr></thead>
-          <tbody>
-            <tr><td className="muted">10:24</td><td>อ.สมชาย ใจดี</td><td><Pill kind="blue">ประเมิน</Pill></td><td>ประเมินหลักฐาน "โครงงานสมุนไพร" ของ สุดา ใจดี</td></tr>
-            <tr><td className="muted">09:58</td><td>สุดา ใจดี</td><td><Pill kind="green">ส่งหลักฐาน</Pill></td><td>อัปโหลด "การนำเสนอระบบหายใจ"</td></tr>
-            <tr><td className="muted">09:30</td><td>นายอนันต์ ระบบดี</td><td><Pill kind="purple">สร้างบัญชี</Pill></td><td>เพิ่มผู้ใช้ 65001247 (กิตติพงศ์ พิทักษ์)</td></tr>
-            <tr><td className="muted">08:45</td><td>อ.วิมล สุขใส</td><td><Pill kind="amber">แก้ไขรูบริก</Pill></td><td>อัปเดต "การสื่อสาร" ระดับ 3</td></tr>
-            <tr><td className="muted">เมื่อวาน</td><td>ระบบ</td><td><Pill kind="gray">สำรองข้อมูล</Pill></td><td>Backup สำเร็จ • 2.4 GB</td></tr>
-          </tbody>
-        </table>
+        <div className="row-between">
+          <h2 className="mb-0">เริ่มต้นใช้งานระบบ</h2>
+          <button className="btn btn-primary btn-sm" onClick={()=>go("a-users")}>จัดการผู้ใช้ →</button>
+        </div>
+        <div className="muted mt-3" style={{lineHeight:1.7}}>
+          ระบบยังว่าง — เริ่มจาก: <b>(1)</b> เพิ่มผู้ใช้ (นักเรียน/อาจารย์) ผ่านเมนู "จัดการผู้ใช้" หรือ "นำเข้า CSV"
+          → <b>(2)</b> นักเรียนล็อกอินเข้ามาอัปโหลดหลักฐาน → <b>(3)</b> อาจารย์ตรวจประเมิน
+        </div>
       </div>
     </div>
   );
@@ -526,65 +484,14 @@ function AdminReports() {
       <h2 style={{fontSize:22}}>รายงานและภาพรวม</h2>
 
       <div className="stat-grid mt-3" style={{gridTemplateColumns:"repeat(4,1fr)"}}>
-        <div className="stat stat-blue"><div className="num">3.71</div><div className="lbl">คะแนนเฉลี่ยรวม</div></div>
-        <div className="stat stat-green"><div className="num">92%</div><div className="lbl">นักเรียนใช้งาน 7 วันล่าสุด</div></div>
-        <div className="stat stat-amber"><div className="num">2.4 วัน</div><div className="lbl">เวลาเฉลี่ยรอประเมิน</div></div>
-        <div className="stat stat-purple"><div className="num">412</div><div className="lbl">หลักฐานที่ส่งเดือนนี้</div></div>
+        <div className="stat stat-blue"><div className="num">—</div><div className="lbl">คะแนนเฉลี่ยรวม</div></div>
+        <div className="stat stat-green"><div className="num">—</div><div className="lbl">นักเรียนใช้งาน 7 วันล่าสุด</div></div>
+        <div className="stat stat-amber"><div className="num">—</div><div className="lbl">เวลาเฉลี่ยรอประเมิน</div></div>
+        <div className="stat stat-purple"><div className="num">—</div><div className="lbl">หลักฐานที่ส่งเดือนนี้</div></div>
       </div>
 
-      <div className="two-col mt-5">
-        <div className="card">
-          <h3>คะแนนเฉลี่ยตามสมรรถนะ (ทั้งโรงเรียน)</h3>
-          {[
-            {l:"การจัดการตนเอง", v:3.6},
-            {l:"การคิดขั้นสูง",   v:3.2},
-            {l:"การสื่อสาร",       v:3.9},
-            {l:"ทำงานเป็นทีม",     v:3.7},
-            {l:"พลเมืองเข้มแข็ง",  v:3.4},
-            {l:"อยู่ร่วมกับธรรมชาติ", v:3.1},
-            {l:"ใฝ่รู้และสืบเสาะ", v:4.1},
-            {l:"เข้าอกเข้าใจ",     v:3.8},
-          ].map((c,i)=>(
-            <div key={i} className="comp-row">
-              <div className="lbl"><span>{c.l}</span><span className="muted">{c.v.toFixed(1)}/5</span></div>
-              <ProgressBar value={c.v}/>
-            </div>
-          ))}
-        </div>
-
-        <div className="card">
-          <h3>การส่งหลักฐานรายเดือน</h3>
-          <BarChart data={[
-            {l:"มิ.ย.", v:280},{l:"ก.ค.", v:312},{l:"ส.ค.", v:298},
-            {l:"ก.ย.", v:344},{l:"ต.ค.", v:412},
-          ]}/>
-          <div className="divider-h"></div>
-          <h3>การประเมินตามสถานะ</h3>
-          <Donut slices={[
-            {label:"ผ่าน", value:1124, color:"#10b981"},
-            {label:"ต้องปรับปรุง", value:218, color:"#8b5cf6"},
-            {label:"รอประเมิน", value:84, color:"#f59e0b"},
-            {label:"ไม่ผ่าน", value:60, color:"#ef4444"},
-          ]}/>
-        </div>
-      </div>
-
-      <div className="card mt-5">
-        <h3>นักเรียน Top 10 ด้านพัฒนาการสมรรถนะ (เทอมนี้)</h3>
-        <table className="table">
-          <thead><tr><th>อันดับ</th><th>นักเรียน</th><th>ห้อง</th><th>คะแนนเฉลี่ย</th><th>พัฒนาการ</th></tr></thead>
-          <tbody>
-            {[
-              ["1","ปวีณา ขยันดี","ม.6/1",4.4,"+0.8"],
-              ["2","ณัฐวดี สมบัติ","ม.5/2",4.1,"+0.6"],
-              ["3","สุดา ใจดี","ม.5/2",3.8,"+0.5"],
-              ["4","กิตติพงศ์ พิทักษ์","ม.5/2",3.6,"+0.4"],
-              ["5","ภัทรพล วิทยา","ม.5/2",3.4,"+0.3"],
-            ].map((r,i)=>(
-              <tr key={i}><td className="num">{r[0]}</td><td>{r[1]}</td><td>{r[2]}</td><td className="num">{r[3].toFixed(1)}</td><td><Pill kind="green">{r[4]}</Pill></td></tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="card mt-5 muted" style={{padding:30,textAlign:"center"}}>
+        รายงานจะแสดงเมื่อมีข้อมูลการใช้งานในระบบ (นักเรียนส่งหลักฐาน + อาจารย์ประเมิน)
       </div>
     </div>
   );
@@ -592,6 +499,7 @@ function AdminReports() {
 
 /* ---------- Settings ---------- */
 function AdminSettings({ toast, onLogout }) {
+  const me = window.pfCurrentUser || {};
   const [cfg, setCfg] = React.useState({
     semester: "1/2567",
     allowSelfRegister: false,
@@ -612,9 +520,9 @@ function AdminSettings({ toast, onLogout }) {
           <div className="row gap-3" style={{alignItems:"center"}}>
             <div className="avatar-lg" style={{background:"linear-gradient(135deg,#fda4af,#fb7185)", width:72, height:72, fontSize:34}}>🛡️</div>
             <div>
-              <div style={{fontWeight:600, fontSize:17}}>{ADMIN_SELF.name}</div>
-              <div className="muted small">{ADMIN_SELF.email}</div>
-              <div className="muted small mono">{ADMIN_SELF.staffId}</div>
+              <div style={{fontWeight:600, fontSize:17}}>{me.name || "ผู้ดูแลระบบ"}</div>
+              <div className="muted small">{me.email || "—"}</div>
+              <div className="muted small mono">{me.id ? me.id.slice(0,8) : "—"}</div>
             </div>
           </div>
           <button className="btn btn-danger btn-block mt-5" onClick={onLogout}>ออกจากระบบ</button>

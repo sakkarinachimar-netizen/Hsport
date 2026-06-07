@@ -10,145 +10,36 @@ const TEACHER_NAV = [
   { key: "t-profile", label: "โปรไฟล์" },
 ];
 
-const TEACHER_SELF = {
-  staffId: "T-0238",
-  name: "อ.ดร.สมชาย ใจดี",
-  dept: "กลุ่มสาระวิทยาศาสตร์สุขภาพ",
-  email: "somchai@swu.ac.th",
-  phone: "081-555-0238",
-  classes: "ม.5/2, ม.6/1",
-};
-
-const REVIEW_QUEUE = [
-  {
-    id: "r1", student: "สุดา ใจดี", studentId: "65001234", classroom: "ม.5/2",
-    title: "การนำเสนอหน้าชั้นเรียน: ระบบหายใจของมนุษย์",
-    desc: "การนำเสนอแบบกลุ่มเกี่ยวกับโครงสร้างและหน้าที่ของระบบหายใจ",
-    date: "12 ต.ค. 2567", sub: "2 วันที่แล้ว",
-    comps: ["การสื่อสาร", "การรวมพลังทำงานเป็นทีม", "เข้าอกเข้าใจผู้อื่น"],
-    files: ["presentation.pdf", "recording.mp4"],
-    driveLinks: [
-      parseDriveLink("https://docs.google.com/presentation/d/T1A2B3C4D5E6F7G8H9I0JKLMNOPqrstu/edit"),
-      parseDriveLink("https://drive.google.com/file/d/T2X3Y4Z5A6B7C8D9E0FGHIJKLMNOPqrst/view"),
-    ],
-    urgency: "amber",
-  },
-  {
-    id: "r2", student: "ภัทรพล วิทยา", studentId: "65001235", classroom: "ม.5/2",
-    title: "บทสะท้อนการเรียนรู้: การเรียนวิชาชีววิทยา",
-    desc: "การสะท้อนคิดเกี่ยวกับการเรียนวิชาชีววิทยาในเทอมนี้",
-    date: "10 ต.ค. 2567", sub: "4 วันที่แล้ว",
-    comps: ["การจัดการตนเอง", "ยืดหยุ่นและปรับตัว"],
-    files: ["reflection.docx"],
-    driveLinks: [
-      parseDriveLink("https://docs.google.com/document/d/T3F4G5H6I7J8K9L0M1NOPQRSTUVwxyz/edit"),
-    ],
-    urgency: "red",
-  },
-  {
-    id: "r3", student: "ณัฐวดี สมบัติ", studentId: "65001241", classroom: "ม.5/2",
-    title: "โครงงาน: สำรวจคุณภาพอากาศในโรงเรียน",
-    desc: "งานสำรวจคุณภาพอากาศและฝุ่น PM2.5 รอบโรงเรียน 2 สัปดาห์",
-    date: "14 ต.ค. 2567", sub: "เมื่อวานนี้",
-    comps: ["ใฝ่รู้และสืบเสาะหาความรู้", "การคิดขั้นสูง", "อยู่ร่วมกับธรรมชาติและวิทยาการ"],
-    files: ["project.pdf", "data.xlsx"],
-    driveLinks: [
-      parseDriveLink("https://drive.google.com/file/d/T4G5H6I7J8K9L0M1N2OPQRSTUVwxyz12/view"),
-      parseDriveLink("https://docs.google.com/spreadsheets/d/T5H6I7J8K9L0M1N2O3PQRSTUVwxyzab/edit"),
-    ],
-    urgency: "blue",
-  },
-  {
-    id: "r4", student: "ปวีณา ขยันดี", studentId: "65001242", classroom: "ม.6/1",
-    title: "ค่ายอาสาดูแลผู้สูงอายุ",
-    desc: "บันทึกการเข้าร่วมค่าย 3 วัน 2 คืน และบทสะท้อนสิ่งที่ได้เรียนรู้",
-    date: "9 ต.ค. 2567", sub: "5 วันที่แล้ว",
-    comps: ["การเป็นพลเมืองที่เข้มแข็ง","การเข้าอกเข้าใจผู้อื่น","มีจริยธรรมและความรับผิดชอบ"],
-    files: ["report.pdf", "photos.zip"],
-    urgency: "amber",
-  },
-];
-
-const MY_STUDENTS = [
-  { id: "65001234", name: "สุดา ใจดี",         room:"ม.5/2", count: 15, avg: 3.8, pend: 1, last:"2 วัน" },
-  { id: "65001235", name: "ภัทรพล วิทยา",     room:"ม.5/2", count: 12, avg: 3.4, pend: 2, last:"4 วัน" },
-  { id: "65001241", name: "ณัฐวดี สมบัติ",     room:"ม.5/2", count: 18, avg: 4.1, pend: 1, last:"1 วัน" },
-  { id: "65001244", name: "ธนพร แก้วใส",     room:"ม.5/2", count: 9,  avg: 3.0, pend: 0, last:"1 สัปดาห์" },
-  { id: "65001247", name: "กิตติพงศ์ พิทักษ์", room:"ม.5/2", count: 14, avg: 3.6, pend: 0, last:"3 วัน" },
-  { id: "65001242", name: "ปวีณา ขยันดี",     room:"ม.6/1", count: 21, avg: 4.4, pend: 1, last:"5 วัน" },
-  { id: "65001245", name: "อนุชา สงบ",       room:"ม.6/1", count: 11, avg: 3.2, pend: 0, last:"2 สัปดาห์" },
-];
-
-const HISTORY = [
-  { id:"h1", date:"10 ต.ค. 2567", student:"สุดา ใจดี", title:"โครงงานวิจัยสมุนไพรไทย", score:4.5, status:"ผ่าน" },
-  { id:"h2", date:"8 ต.ค. 2567", student:"ภัทรพล วิทยา", title:"การทดลองในห้องปฏิบัติการ", score:3.5, status:"ผ่าน" },
-  { id:"h3", date:"5 ต.ค. 2567", student:"ธนพร แก้วใส", title:"บทสะท้อนการเรียน", score:2.5, status:"ต้องปรับปรุง" },
-  { id:"h4", date:"3 ต.ค. 2567", student:"ณัฐวดี สมบัติ", title:"การนำเสนอประเด็นสุขภาพ", score:4.0, status:"ผ่าน" },
-  { id:"h5", date:"1 ต.ค. 2567", student:"กิตติพงศ์ พิทักษ์", title:"โปสเตอร์รณรงค์", score:3.8, status:"ผ่าน" },
-];
-
+const TEACHER_SELF = {};
+const REVIEW_QUEUE = [];
+const MY_STUDENTS = [];
+const HISTORY = [];
 /* ---------- Teacher Home / Dashboard ---------- */
 function TeacherHome({ go }) {
+  const u = window.pfCurrentUser || {};
   return (
     <div className="page">
       <div className="hero">
         <Avatar emoji="👨‍🏫" size={64} gradient="linear-gradient(135deg,#22d3ee,#3b82f6)"/>
         <div>
-          <h1>สวัสดี {TEACHER_SELF.name}</h1>
-          <p>{TEACHER_SELF.dept} • ที่ปรึกษาห้อง {TEACHER_SELF.classes}</p>
-          <a>คุณมีหลักฐานรอตรวจ 4 รายการ และนัดหมายให้คำปรึกษา 2 ครั้งสัปดาห์นี้</a>
+          <h1>สวัสดี {u.name || "อาจารย์"}</h1>
+          <p>อาจารย์ผู้ประเมิน • PDS_HS Portfolio System</p>
+          <a>ตรวจหลักฐานนักเรียน บันทึกผลการประเมินสมรรถนะ</a>
         </div>
       </div>
 
       <div className="stat-grid mt-5" style={{gridTemplateColumns:"repeat(4,1fr)"}}>
-        <div className="stat stat-blue"><div className="num">42</div><div className="lbl">นักเรียนในที่ปรึกษา</div></div>
-        <div className="stat stat-amber"><div className="num">4</div><div className="lbl">หลักฐานรอตรวจ</div></div>
-        <div className="stat stat-green"><div className="num">128</div><div className="lbl">ประเมินแล้ว (เทอมนี้)</div></div>
-        <div className="stat stat-purple"><div className="num">3.7</div><div className="lbl">คะแนนเฉลี่ยห้อง</div></div>
-      </div>
-
-      <div className="two-col mt-5">
-        <div className="card">
-          <div className="row-between"><h2 className="mb-0">รายการรอตรวจ (ด่วน)</h2>
-            <button className="btn btn-ghost btn-sm" onClick={()=>go("t-review")}>ดูทั้งหมด →</button>
-          </div>
-          <div className="mt-3" style={{display:"flex", flexDirection:"column", gap:10}}>
-            {REVIEW_QUEUE.slice(0,3).map(r => (
-              <div key={r.id} className="card card-tight" style={{padding:14, border:"1px solid var(--line)"}}>
-                <div className="row-between">
-                  <div>
-                    <div style={{fontWeight:600}}>{r.title}</div>
-                    <div className="small muted">โดย {r.student} • ส่งเมื่อ {r.sub}</div>
-                  </div>
-                  <Pill kind={r.urgency==="red"?"red":r.urgency==="amber"?"amber":"blue"}>
-                    {r.urgency==="red"?"เร่งด่วน":r.urgency==="amber"?"ปานกลาง":"ปกติ"}
-                  </Pill>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="card">
-          <h2>ภาพรวมสมรรถนะของห้อง ม.5/2</h2>
-          <div className="radar-wrap">
-            <RadarChart
-              labels={["จัดการตนเอง","คิดขั้นสูง","สื่อสาร","ทีม","พลเมือง","ธรรมชาติ","ใฝ่รู้","เข้าอกเข้าใจ","จริยธรรม","ยืดหยุ่น"]}
-              values={[3.6, 3.2, 3.9, 3.7, 3.4, 3.1, 4.1, 3.8, 3.5, 3.3]}
-              max={5} size={380}/>
-          </div>
-        </div>
+        <div className="stat stat-blue"><div className="num">—</div><div className="lbl">นักเรียนในที่ปรึกษา</div></div>
+        <div className="stat stat-amber"><div className="num">—</div><div className="lbl">หลักฐานรอตรวจ</div></div>
+        <div className="stat stat-green"><div className="num">—</div><div className="lbl">ประเมินแล้ว (เทอมนี้)</div></div>
+        <div className="stat stat-purple"><div className="num">—</div><div className="lbl">คะแนนเฉลี่ยห้อง</div></div>
       </div>
 
       <div className="card mt-5">
-        <h2>นัดหมายให้คำปรึกษา (สัปดาห์นี้)</h2>
-        <table className="table">
-          <thead><tr><th>วันที่</th><th>เวลา</th><th>นักเรียน</th><th>หัวข้อ</th><th></th></tr></thead>
-          <tbody>
-            <tr><td>จ. 18 พ.ย. 2567</td><td className="num">14:00</td><td>สุดา ใจดี</td><td>ปรึกษาโครงงานสมุนไพร</td><td className="text-right"><button className="btn btn-ghost btn-sm">เลื่อน</button></td></tr>
-            <tr><td>พ. 20 พ.ย. 2567</td><td className="num">10:30</td><td>ธนพร แก้วใส</td><td>ทบทวนบทสะท้อน</td><td className="text-right"><button className="btn btn-ghost btn-sm">เลื่อน</button></td></tr>
-          </tbody>
-        </table>
+        <div className="row-between"><h2 className="mb-0">รายการรอตรวจ</h2>
+          <button className="btn btn-ghost btn-sm" onClick={()=>go("t-review")}>ดูทั้งหมด →</button>
+        </div>
+        <div className="muted" style={{padding:"30px 0",textAlign:"center"}}>ยังไม่มีหลักฐานที่รอการประเมิน</div>
       </div>
     </div>
   );
@@ -404,10 +295,7 @@ function TeacherHistory() {
 
 /* ---------- Announcements ---------- */
 function TeacherAnnounce({ toast }) {
-  const [posts, setPosts] = React.useState([
-    { id:"n1", title:"กำหนดส่งโครงงานปลายภาค", body:"นักเรียนทุกคนกรุณาส่งหลักฐานโครงงานก่อนวันที่ 30 พ.ย. 2567", date:"2 วันที่แล้ว", to:"ม.5/2" },
-    { id:"n2", title:"ปรึกษากลุ่ม ส.พ. 24", body:"พบกันที่ห้อง 405 เวลา 13:00 เพื่อทบทวนแผนการศึกษา", date:"5 วันที่แล้ว", to:"ม.5/2" },
-  ]);
+  const [posts, setPosts] = React.useState([]);
   const [form, setForm] = React.useState({ title:"", body:"", to:"ม.5/2" });
   const post = (e) => {
     e.preventDefault();
@@ -453,7 +341,11 @@ function TeacherAnnounce({ toast }) {
 
 /* ---------- Teacher Profile ---------- */
 function TeacherProfile({ toast, onLogout }) {
-  const [u, setU] = React.useState(TEACHER_SELF);
+  const cur = window.pfCurrentUser || {};
+  const [u, setU] = React.useState({
+    staffId: cur.id || "", name: cur.name || "", dept: cur.dept || "",
+    email: cur.email || "", phone: "", classes: "",
+  });
   const upd = (k, v) => setU(s => ({ ...s, [k]: v }));
   return (
     <div className="page">
@@ -477,10 +369,10 @@ function TeacherProfile({ toast, onLogout }) {
           <div className="card">
             <h3>สถิติการประเมิน</h3>
             <div className="stat-grid">
-              <div className="stat stat-blue"><div className="num">128</div><div className="lbl">ประเมินแล้วเทอมนี้</div></div>
-              <div className="stat stat-amber"><div className="num">4</div><div className="lbl">รอประเมิน</div></div>
-              <div className="stat stat-green"><div className="num">42</div><div className="lbl">นักเรียนในที่ปรึกษา</div></div>
-              <div className="stat stat-purple"><div className="num">3.7</div><div className="lbl">คะแนนเฉลี่ยที่ให้</div></div>
+              <div className="stat stat-blue"><div className="num">—</div><div className="lbl">ประเมินแล้วเทอมนี้</div></div>
+              <div className="stat stat-amber"><div className="num">—</div><div className="lbl">รอประเมิน</div></div>
+              <div className="stat stat-green"><div className="num">—</div><div className="lbl">นักเรียนในที่ปรึกษา</div></div>
+              <div className="stat stat-purple"><div className="num">—</div><div className="lbl">คะแนนเฉลี่ยที่ให้</div></div>
             </div>
           </div>
           <div className="card mt-4">
