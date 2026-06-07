@@ -350,9 +350,7 @@ function AdminInternship({ toast }) {
   const [tab, setTab] = React.useState("sites");
   const [sites, setSites] = React.useState([]);
   const [loading, setLoading] = React.useState(backend);
-  const [periods, setPeriods] = React.useState(INTERNSHIP_PERIODS);
   const [siteForm, setSiteForm] = React.useState(null);
-  const [periodForm, setPeriodForm] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
 
   // DB row → form/display shape (snake_case → camelCase)
@@ -448,20 +446,6 @@ function AdminInternship({ toast }) {
     }
   };
 
-  const newPeriod = () => setPeriodForm({ id:"", name:"", label:"", start:"", end:"", weeks:2, timeStart:"09:00", timeEnd:"16:00", days:"จ.–ศ.", hoursPerDay:7, open:true });
-  const editPeriod = (p) => setPeriodForm({ ...p });
-  const savePeriod = () => {
-    if (!periodForm.label || !periodForm.start) { toast("กรุณากรอกข้อมูลให้ครบ"); return; }
-    setPeriods(list => {
-      const existing = list.find(x => x.id === periodForm.id);
-      if (existing) return list.map(x => x.id === periodForm.id ? periodForm : x);
-      return [...list, { ...periodForm, id: "p" + (list.length + 100) }];
-    });
-    setPeriodForm(null);
-    toast("บันทึกช่วงเวลาเรียบร้อย");
-  };
-  const removePeriod = (id) => { setPeriods(p => p.filter(x => x.id !== id)); toast("ลบช่วงเวลาแล้ว"); };
-
   return (
     <div className="page">
       <div className="row-between">
@@ -469,14 +453,13 @@ function AdminInternship({ toast }) {
           <h2 className="mb-0" style={{fontSize:22}}>จัดการระบบฝึกงาน</h2>
           <div className="muted small">กำหนดสถานที่ฝึกประสบการณ์ จำนวนรับ และช่วงเวลาให้นักเรียนเลือกสมัคร</div>
         </div>
-        {tab === "sites"
-          ? <button className="btn btn-primary btn-sm" onClick={newSite}><Icons.plus/> เพิ่มสถานที่</button>
-          : <button className="btn btn-primary btn-sm" onClick={newPeriod}><Icons.plus/> เพิ่มช่วงเวลา</button>}
+        {tab === "sites" && (
+          <button className="btn btn-primary btn-sm" onClick={newSite}><Icons.plus/> เพิ่มสถานที่</button>
+        )}
       </div>
 
       <div className="tabs mt-4">
         <button className={tab==="sites"?"active":""} onClick={()=>setTab("sites")}>สถานที่ฝึกงาน ({sites.length})</button>
-        <button className={tab==="periods"?"active":""} onClick={()=>setTab("periods")}>ช่วงเวลาฝึกงาน ({periods.length})</button>
         <button className={tab==="apps"?"active":""} onClick={()=>setTab("apps")}>คำขอของนักเรียน</button>
       </div>
 
@@ -522,46 +505,24 @@ function AdminInternship({ toast }) {
         </div>
       )}
 
-      {tab === "periods" && (
-        <div className="card" style={{padding:0, overflow:"hidden"}}>
-          <table className="table">
-            <thead><tr><th>ช่วงเวลา</th><th>วันเริ่ม</th><th>วันสิ้นสุด</th><th>ระยะเวลา</th><th>เวลาทำการ</th><th>วันทำงาน</th><th>สถานะ</th><th></th></tr></thead>
-            <tbody>
-              {periods.map(p => (
-                <tr key={p.id}>
-                  <td><b>{p.label}</b></td>
-                  <td className="mono">{p.start}</td>
-                  <td className="mono">{p.end}</td>
-                  <td>{p.weeks} สัปดาห์</td>
-                  <td className="mono">{p.timeStart}–{p.timeEnd} <span className="muted small">({p.hoursPerDay} ชม./วัน)</span></td>
-                  <td>{p.days}</td>
-                  <td>{p.open ? <Pill kind="green">เปิดรับสมัคร</Pill> : <Pill kind="gray">ปิด</Pill>}</td>
-                  <td className="text-right">
-                    <div className="row gap-2" style={{justifyContent:"flex-end"}}>
-                      <button className="btn btn-ghost btn-sm" onClick={()=>editPeriod(p)}>แก้ไข</button>
-                      <button className="btn btn-ghost btn-sm" onClick={()=>removePeriod(p.id)}>ลบ</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
       {tab === "apps" && (
         <div className="card" style={{padding:0, overflow:"hidden"}}>
           <table className="table">
             <thead><tr><th>นักเรียน</th><th>สถานที่</th><th>ช่วงเวลา</th><th>สถานะ</th><th>การประเมิน</th></tr></thead>
             <tbody>
-              {initialApps.map(a => {
+              {initialApps.length === 0 ? (
+                <tr><td colSpan={5} className="muted" style={{padding:30,textAlign:"center"}}>ยังไม่มีคำขอจากนักเรียน</td></tr>
+              ) : initialApps.map(a => {
                 const s = sites.find(x => x.id === a.siteId);
-                const p = periods.find(x => x.id === a.periodId);
                 return (
                   <tr key={a.id}>
                     <td><b>{a.student}</b><div className="mono small muted">{a.studentId}</div></td>
                     <td>{s ? s.name : "—"}<div className="small muted">{s ? s.dept : ""}</div></td>
-                    <td>{p ? p.label : "—"}</td>
+                    <td className="mono small">
+                      {s && s.startDate && s.endDate
+                        ? <>{s.startDate} → {s.endDate}</>
+                        : <span className="muted">—</span>}
+                    </td>
                     <td>
                       {a.status === "approved" ? <Pill kind="green">อนุมัติ</Pill> :
                        a.status === "rejected" ? <Pill kind="red">ไม่อนุมัติ</Pill> :
@@ -650,74 +611,6 @@ function AdminInternship({ toast }) {
         </Modal>
       )}
 
-      {periodForm && (
-        <Modal title={periodForm.id ? "แก้ไขช่วงเวลา" : "เพิ่มช่วงเวลาฝึกงาน"} onClose={()=>setPeriodForm(null)} width={640}
-          footer={<>
-            <button className="btn btn-ghost" onClick={()=>setPeriodForm(null)}>ยกเลิก</button>
-            <button className="btn btn-primary" onClick={savePeriod}>บันทึก</button>
-          </>}>
-          <div className="field">
-            <label>ชื่อช่วงเวลา (แสดงให้นักเรียน)</label>
-            <input className="input" value={periodForm.label} onChange={e=>setPeriodForm(f=>({...f, label:e.target.value}))} placeholder="เช่น ภาคฤดูร้อน 2568"/>
-          </div>
-
-          <div style={{fontWeight:600, marginBottom:6, marginTop:4}}>📅 วันที่ฝึกงาน</div>
-          <div className="row gap-4">
-            <div className="field" style={{flex:1}}>
-              <label>วันเริ่ม</label>
-              <input className="input" type="date" value={periodForm.start} onChange={e=>setPeriodForm(f=>({...f, start:e.target.value}))}/>
-            </div>
-            <div className="field" style={{flex:1}}>
-              <label>วันสิ้นสุด</label>
-              <input className="input" type="date" value={periodForm.end} onChange={e=>setPeriodForm(f=>({...f, end:e.target.value}))}/>
-            </div>
-            <div className="field" style={{flex:1}}>
-              <label>จำนวนสัปดาห์</label>
-              <input className="input" type="number" min="1" value={periodForm.weeks} onChange={e=>setPeriodForm(f=>({...f, weeks:+e.target.value}))}/>
-            </div>
-          </div>
-
-          <div style={{fontWeight:600, marginBottom:6, marginTop:4}}>🕐 เวลาในการฝึกงาน (รายวัน)</div>
-          <div className="row gap-4">
-            <div className="field" style={{flex:1}}>
-              <label>เวลาเริ่ม</label>
-              <input className="input" type="time" value={periodForm.timeStart} onChange={e=>setPeriodForm(f=>({...f, timeStart:e.target.value}))}/>
-            </div>
-            <div className="field" style={{flex:1}}>
-              <label>เวลาเลิก</label>
-              <input className="input" type="time" value={periodForm.timeEnd} onChange={e=>setPeriodForm(f=>({...f, timeEnd:e.target.value}))}/>
-            </div>
-            <div className="field" style={{flex:1}}>
-              <label>ชั่วโมง/วัน</label>
-              <input className="input" type="number" min="1" max="12" step="0.5" value={periodForm.hoursPerDay} onChange={e=>setPeriodForm(f=>({...f, hoursPerDay:+e.target.value}))}/>
-            </div>
-          </div>
-
-          <div className="field">
-            <label>วันทำงาน</label>
-            <select className="select" value={periodForm.days} onChange={e=>setPeriodForm(f=>({...f, days:e.target.value}))}>
-              <option>จ.–ศ.</option>
-              <option>จ.–ส.</option>
-              <option>จ.–อา.</option>
-              <option>ตามนัดหมาย</option>
-            </select>
-          </div>
-
-          <div className="privacy" style={{marginTop:6}}>
-            <div className="h">📌 สรุป</div>
-            <div className="mt-2 small">
-              ฝึกงาน {periodForm.weeks || 0} สัปดาห์ • {periodForm.days || ""} •
-              เวลา <b className="mono">{periodForm.timeStart || "--:--"}–{periodForm.timeEnd || "--:--"}</b> น. •
-              ประมาณ <b>{((periodForm.hoursPerDay||0) * (periodForm.weeks||0) * (periodForm.days==="จ.–อา."?7: periodForm.days==="จ.–ส."?6:5))} ชั่วโมง</b> รวม
-            </div>
-          </div>
-
-          <div className="checkbox-row mt-3">
-            <input type="checkbox" checked={periodForm.open} onChange={e=>setPeriodForm(f=>({...f, open:e.target.checked}))}/>
-            <span>เปิดรับสมัครในช่วงนี้</span>
-          </div>
-        </Modal>
-      )}
     </div>
   );
 }
