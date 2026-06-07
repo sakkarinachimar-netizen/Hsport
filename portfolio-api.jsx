@@ -21,12 +21,26 @@ const PfUsers = {
     const { error } = await _pf().from('users').update(fields).eq('id', id);
     if (error) throw error;
   },
-  // ลบแถวใน public.users (ระงับสิทธิ์เข้าใช้ระบบ)
-  // หมายเหตุ: auth.users ยังคงอยู่ — ต้องลบจาก Supabase Dashboard ถ้าต้องการลบทั้งหมด
+  // ลบผู้ใช้แบบสมบูรณ์ (ทั้ง auth.users + public.users)
+  // ผ่าน Edge Function `delete-user` ที่ใช้ service_role (ฝั่ง client ทำตรง ๆ ไม่ได้)
   async remove(id) {
     if (!_pf()) return null;
-    const { error } = await _pf().from('users').delete().eq('id', id);
-    if (error) throw error;
+    const { data, error } = await _pf().functions.invoke('delete-user', {
+      body: { user_id: id },
+    });
+    if (error) {
+      // FunctionsHttpError → ดึง error message จาก response
+      let msg = error.message || String(error);
+      try {
+        const ctx = await error.context?.json?.();
+        if (ctx?.error) msg = ctx.error;
+      } catch (_) {}
+      if (msg.includes("Failed to send") || msg.includes("not found") || msg.includes("404")) {
+        throw new Error("ยังไม่ได้ deploy Edge Function 'delete-user' (ดูคู่มือใน supabase/functions/delete-user/index.ts)");
+      }
+      throw new Error(msg);
+    }
+    return data;
   },
   // สร้างผู้ใช้ใหม่ — ใช้ client ชั่วคราว เพื่อไม่ให้ session ของแอดมินถูกแทนที่
   async createUser({ email, password, name, role, studentCode, grade }) {
