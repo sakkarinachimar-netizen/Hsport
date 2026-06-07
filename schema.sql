@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS evidence_items (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  assigned_teacher_id UUID REFERENCES users(id),
   title         TEXT NOT NULL,
   kind          TEXT,
   date          DATE,
@@ -146,13 +147,21 @@ CREATE POLICY "users_admin_write" ON users FOR ALL
 
 DROP POLICY IF EXISTS "evidence_select" ON evidence_items;
 CREATE POLICY "evidence_select" ON evidence_items FOR SELECT
-  USING (student_id = auth.uid() OR is_staff());
+  USING (
+    student_id = auth.uid()
+    OR current_user_role() = 'admin'
+    OR (current_user_role() = 'teacher' AND assigned_teacher_id = auth.uid())
+  );
 DROP POLICY IF EXISTS "evidence_insert" ON evidence_items;
 CREATE POLICY "evidence_insert" ON evidence_items FOR INSERT
   WITH CHECK (student_id = auth.uid() AND current_user_role() = 'student');
 DROP POLICY IF EXISTS "evidence_update" ON evidence_items;
 CREATE POLICY "evidence_update" ON evidence_items FOR UPDATE
-  USING (student_id = auth.uid() OR is_staff());
+  USING (
+    student_id = auth.uid()
+    OR current_user_role() = 'admin'
+    OR (current_user_role() = 'teacher' AND assigned_teacher_id = auth.uid())
+  );
 DROP POLICY IF EXISTS "evidence_delete" ON evidence_items;
 CREATE POLICY "evidence_delete" ON evidence_items FOR DELETE
   USING (student_id = auth.uid() OR current_user_role() = 'admin');

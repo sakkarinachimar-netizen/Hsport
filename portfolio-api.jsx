@@ -77,12 +77,13 @@ const PfEvidence = {
     if (error) throw error;
     return data;
   },
-  async create({ studentId, title, kind, date, core, spec, reflection, driveLinks }) {
+  async create({ studentId, title, kind, date, core, spec, reflection, driveLinks, assignedTeacherId }) {
     if (!_pf()) return null;
     const { data: ev, error } = await _pf()
       .from('evidence_items')
       .insert({
         student_id: studentId, title, kind, date,
+        assigned_teacher_id: assignedTeacherId || null,
         core_competencies: core || [], spec_competencies: spec || [],
         reflection, status: 'pending',
       })

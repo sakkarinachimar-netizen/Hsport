@@ -87,7 +87,28 @@ CREATE TRIGGER trg_guard_role
 -- ── 5) ตรวจรายชื่อผู้ใช้ + บทบาทปัจจุบัน ──
 -- SELECT email, name, role, student_code, grade FROM public.users ORDER BY role, email;
 
--- ── 6) ตาราง override สำหรับรูบริก (แอดมินแก้ทับค่าเริ่มต้นจาก data.jsx ได้) ──
+-- ── 6) Assign teacher ให้ evidence + RLS ใหม่ ──
+-- นักเรียนเลือกอาจารย์ตอนส่งหลักฐาน → อาจารย์เห็นเฉพาะที่ถูกมอบหมายให้ตน
+ALTER TABLE evidence_items
+  ADD COLUMN IF NOT EXISTS assigned_teacher_id UUID REFERENCES users(id);
+
+DROP POLICY IF EXISTS "evidence_select" ON evidence_items;
+CREATE POLICY "evidence_select" ON evidence_items FOR SELECT
+  USING (
+    student_id = auth.uid()
+    OR current_user_role() = 'admin'
+    OR (current_user_role() = 'teacher' AND assigned_teacher_id = auth.uid())
+  );
+
+DROP POLICY IF EXISTS "evidence_update" ON evidence_items;
+CREATE POLICY "evidence_update" ON evidence_items FOR UPDATE
+  USING (
+    student_id = auth.uid()
+    OR current_user_role() = 'admin'
+    OR (current_user_role() = 'teacher' AND assigned_teacher_id = auth.uid())
+  );
+
+-- ── 7) ตาราง override สำหรับรูบริก (แอดมินแก้ทับค่าเริ่มต้นจาก data.jsx ได้) ──
 CREATE TABLE IF NOT EXISTS rubric_overrides (
   key         TEXT PRIMARY KEY,        -- ตรงกับ CORE/SPEC_COMPETENCIES.key
   data        JSONB NOT NULL,          -- เก็บ object รูบริกฉบับแก้แล้วทั้งก้อน

@@ -233,19 +233,32 @@ function StudentPortfolio({ toast }) {
 function StudentUpload({ toast, go }) {
   const [form, setForm] = React.useState({
     title: "", date: "", desc: "",
-    core: [], spec: [], driveLinks: [],
+    core: [], spec: [], driveLinks: [], teacherId: "",
   });
   const [busy, setBusy] = React.useState(false);
+  const [teachers, setTeachers] = React.useState([]);
   const upd = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const toggle = (k, v) => setForm(f => {
     const set = new Set(f[k]); set.has(v) ? set.delete(v) : set.add(v);
     return { ...f, [k]: [...set] };
   });
 
+  // โหลดรายชื่ออาจารย์ตอนเปิดหน้า
+  React.useEffect(() => {
+    if (!window.PfUsers || !window.PF_SUPABASE_READY) return;
+    (async () => {
+      try {
+        const all = await window.PfUsers.list();
+        setTeachers((all || []).filter(u => u.role === "teacher"));
+      } catch (e) { /* ignore — fallback to empty list */ }
+    })();
+  }, []);
+
   const submit = async (e) => {
     e.preventDefault();
     if (!form.title || !form.date || !form.desc) { toast("กรุณากรอกข้อมูลให้ครบ"); return; }
     if (form.driveLinks.length === 0) { toast("กรุณาแนบลิงก์หลักฐานอย่างน้อย 1 ลิงก์"); return; }
+    if (teachers.length > 0 && !form.teacherId) { toast("กรุณาเลือกอาจารย์ผู้ประเมิน"); return; }
     const backend = window.PfEvidence && window.PF_SUPABASE_READY && window.pfCurrentUser;
     if (backend) {
       setBusy(true);
@@ -255,6 +268,7 @@ function StudentUpload({ toast, go }) {
           title: form.title, date: form.date, kind: null,
           core: form.core, spec: form.spec, reflection: form.desc,
           driveLinks: form.driveLinks.map(d => d.originalUrl || d),
+          assignedTeacherId: form.teacherId || null,
         });
         toast("ส่งหลักฐานเรียบร้อย • สถานะ: รอตรวจ");
         setTimeout(()=>go("portfolio"), 700);
@@ -319,8 +333,24 @@ function StudentUpload({ toast, go }) {
           <DriveLinkInput value={form.driveLinks} onChange={(v)=>upd("driveLinks", v)}/>
         </div>
 
+        <div className="field">
+          <label>ส่งให้อาจารย์ผู้ประเมิน *</label>
+          {teachers.length > 0 ? (
+            <select className="select" value={form.teacherId} onChange={e=>upd("teacherId", e.target.value)} required>
+              <option value="">— เลือกอาจารย์ —</option>
+              {teachers.map(t => (
+                <option key={t.id} value={t.id}>{t.name}{t.email ? ` (${t.email})` : ""}</option>
+              ))}
+            </select>
+          ) : (
+            <div className="muted small" style={{padding:8, background:"var(--bg-soft)", borderRadius:8}}>
+              ยังไม่มีอาจารย์ในระบบ — ติดต่อแอดมินให้สร้างบัญชีอาจารย์ก่อน
+            </div>
+          )}
+        </div>
+
         <div className="row-between mt-3">
-          <span className="muted small">ระบบจะส่งให้อาจารย์ผู้ประเมินตรวจอัตโนมัติ</span>
+          <span className="muted small">หลักฐานจะปรากฏในรายการ "ต้องตรวจ" ของอาจารย์ที่เลือก</span>
           <div className="row gap-3">
             <button type="button" className="btn btn-ghost" onClick={()=>go("home")}>ยกเลิก</button>
             <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? "กำลังส่ง…" : "ส่งหลักฐาน"}</button>

@@ -47,21 +47,77 @@ function TeacherHome({ go }) {
 
 /* ---------- Review Queue with eval modal ---------- */
 function TeacherReview({ toast }) {
-  const [list, setList] = React.useState(REVIEW_QUEUE);
+  const backend = !!(window.PfEvidence && window.PF_SUPABASE_READY && window.pfCurrentUser);
+  const [list, setList] = React.useState([]);
+  const [loading, setLoading] = React.useState(backend);
   const [open, setOpen] = React.useState(null);
   const [filter, setFilter] = React.useState("all");
+  const [busy, setBusy] = React.useState(false);
   const [eval_, setEval_] = React.useState({ score: 4, status: "approve", comment: "", levels: {} });
+
+  // map DB row → display shape ที่ TeacherReview ใช้
+  const mapRow = (r) => ({
+    id: r.id,
+    dbRow: r,                      // เก็บไว้ใช้ตอนบันทึก
+    title: r.title,
+    student: r.student?.name || "—",
+    studentId: r.student?.student_code || (r.student_id ? r.student_id.slice(0,8) : "—"),
+    classroom: r.student?.grade || "—",
+    sub: r.created_at ? new Date(r.created_at).toLocaleDateString("th-TH") : "—",
+    desc: r.reflection || "",
+    comps: [...(r.core_competencies||[]), ...(r.spec_competencies||[])],
+    files: [],
+    date: r.date || "—",
+    driveLinks: (r.evidence_drive_links || []).map(l => parseDriveLink(l.url)),
+    urgency: "blue",
+    // alreadyEvaluated: (r.evaluations || []).length > 0,
+    pending: r.status === "pending",
+  });
+
+  const load = React.useCallback(async () => {
+    if (!backend) { setList([]); setLoading(false); return; }
+    setLoading(true);
+    try {
+      const rows = await window.PfEvidence.listForReview();
+      // RLS กรองให้แล้ว: teacher เห็นเฉพาะที่ถูก assign / admin เห็นทั้งหมด
+      // เรากรองเฉพาะที่ยังไม่ approved/revise (= ยังต้องตรวจ)
+      setList((rows || []).filter(r => r.status === "pending").map(mapRow));
+    } catch (e) { toast("โหลดรายการตรวจไม่สำเร็จ: " + (e.message||e)); }
+    finally { setLoading(false); }
+  }, [backend, toast]);
+  React.useEffect(() => { load(); }, [load]);
 
   const startReview = (r) => {
     setEval_({ score: 4, status: "approve", comment: "", levels: {} });
     setOpen(r);
   };
-  const submitEval = () => {
+  const submitEval = async () => {
+    if (!open) return;
     const label = eval_.status === "approve" ? "ผ่าน" : eval_.status === "revise" ? "ต้องปรับปรุง" : "ไม่ผ่าน";
     const levelName = LEVEL_NAMES[Math.round(eval_.score)-1]?.label || "";
-    toast(`บันทึกการประเมิน: ${label} — ระดับ ${levelName} (${eval_.score}/5)`);
-    setList(l => l.filter(x => x.id !== open.id));
-    setOpen(null);
+    if (!backend) {
+      toast(`บันทึกการประเมิน (demo): ${label} — ระดับ ${levelName} (${eval_.score}/5)`);
+      setList(l => l.filter(x => x.id !== open.id));
+      setOpen(null);
+      return;
+    }
+    setBusy(true);
+    try {
+      await window.PfEvaluations.save({
+        evidenceId: open.id,
+        studentId: open.dbRow.student_id,
+        evaluatorId: window.pfCurrentUser.id,
+        score: eval_.score,
+        status: eval_.status,
+        comment: eval_.comment,
+        subLevels: eval_.levels,
+      });
+      toast(`บันทึกการประเมิน: ${label} — ${levelName} (${eval_.score}/5)`);
+      setOpen(null);
+      await load();
+    } catch (e) {
+      toast("บันทึกไม่สำเร็จ: " + (e.message || e));
+    } finally { setBusy(false); }
   };
   const setLevel = (comp, v) => setEval_(e => ({ ...e, levels: { ...e.levels, [comp]: v }}));
 
@@ -84,13 +140,15 @@ function TeacherReview({ toast }) {
         </div>
       </div>
 
-      {filtered.length === 0 && (
+      {loading ? (
+        <div className="card muted" style={{textAlign:"center", padding:40}}>กำลังโหลด…</div>
+      ) : filtered.length === 0 ? (
         <div className="card" style={{textAlign:"center", padding:60}}>
           <div style={{fontSize:36}}>🎉</div>
           <h3 className="mt-3">เคลียร์รายการครบแล้ว</h3>
-          <div className="muted">ยังไม่มีหลักฐานใหม่ที่รอการประเมิน</div>
+          <div className="muted">ยังไม่มีหลักฐานที่รอการประเมินจากนักเรียนที่คุณรับผิดชอบ</div>
         </div>
-      )}
+      ) : null}
 
       <div style={{display:"flex", flexDirection:"column", gap:14}}>
         {filtered.map(r => (
@@ -109,7 +167,6 @@ function TeacherReview({ toast }) {
                 {r.comps.map((c,i)=> <Pill key={i} kind="blue">{c}</Pill>)}
               </div>
               <div className="status-line">
-                <span>📁 {r.files.join(", ")}</span>
                 <span>📅 {r.date}</span>
                 {r.driveLinks && r.driveLinks.filter(Boolean).length > 0 && (
                   <span>📎 {r.driveLinks.filter(Boolean).length} ลิงก์ Drive</span>
@@ -128,7 +185,7 @@ function TeacherReview({ toast }) {
         <Modal title={`ประเมิน: ${open.title}`} onClose={()=>setOpen(null)} width={760}
           footer={<>
             <button className="btn btn-ghost" onClick={()=>setOpen(null)}>ยกเลิก</button>
-            <button className="btn btn-primary" onClick={submitEval}>บันทึกการประเมิน</button>
+            <button className="btn btn-primary" onClick={submitEval} disabled={busy}>{busy?"กำลังบันทึก…":"บันทึกการประเมิน"}</button>
           </>}>
           <div className="muted small">โดย {open.student} ({open.studentId}) • {open.classroom}</div>
           <p className="mt-2">{open.desc}</p>
