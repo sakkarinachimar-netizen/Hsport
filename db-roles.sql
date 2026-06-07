@@ -87,6 +87,71 @@ CREATE TRIGGER trg_guard_role
 -- ── 5) ตรวจรายชื่อผู้ใช้ + บทบาทปัจจุบัน ──
 -- SELECT email, name, role, student_code, grade FROM public.users ORDER BY role, email;
 
+-- ── 6.7) Trigger อัปเดต taken + status ของสถานที่ฝึกงานอัตโนมัติ ──
+-- เมื่อมีนักเรียนสมัคร/ถูกปฏิเสธ/ลบใบสมัคร → คำนวณใหม่ทันที
+-- นับเฉพาะใบสมัครสถานะ pending/approved (rejected ไม่เอามานับ)
+-- ถ้า taken ≥ cap → ปิดรับอัตโนมัติ (status='full')
+-- ถ้าแอดมินสั่ง closed ไว้เอง → คงสถานะ closed ไม่ override
+CREATE OR REPLACE FUNCTION public.recalc_site_taken()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  affected_ids TEXT[] := ARRAY[]::TEXT[];
+  sid TEXT;
+  c INT;
+  s_cap INT;
+  s_status TEXT;
+  new_status TEXT;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    affected_ids := ARRAY[OLD.site_id];
+  ELSIF TG_OP = 'UPDATE' THEN
+    affected_ids := ARRAY[OLD.site_id, NEW.site_id];
+  ELSE  -- INSERT
+    affected_ids := ARRAY[NEW.site_id];
+  END IF;
+
+  FOREACH sid IN ARRAY affected_ids LOOP
+    IF sid IS NULL THEN CONTINUE; END IF;
+    SELECT COUNT(*) INTO c FROM internship_applications
+      WHERE site_id = sid AND status IN ('pending','approved');
+    SELECT cap, status INTO s_cap, s_status FROM internship_sites WHERE id = sid;
+    IF s_status = 'closed' THEN
+      new_status := 'closed';  -- คงค่า manual close ไว้
+    ELSIF c >= COALESCE(s_cap, 0) AND COALESCE(s_cap, 0) > 0 THEN
+      new_status := 'full';
+    ELSE
+      new_status := 'open';
+    END IF;
+    UPDATE internship_sites SET taken = c, status = new_status WHERE id = sid;
+  END LOOP;
+
+  IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_recalc_taken ON internship_applications;
+CREATE TRIGGER trg_recalc_taken
+  AFTER INSERT OR UPDATE OR DELETE ON internship_applications
+  FOR EACH ROW EXECUTE FUNCTION public.recalc_site_taken();
+
+-- One-time backfill: ซิงก์ taken/status ของทุก site ให้ตรงข้อมูลปัจจุบัน
+UPDATE internship_sites s
+SET taken = COALESCE(c.cnt, 0),
+    status = CASE
+      WHEN s.status = 'closed' THEN 'closed'
+      WHEN COALESCE(c.cnt, 0) >= COALESCE(s.cap, 0) AND COALESCE(s.cap, 0) > 0 THEN 'full'
+      ELSE 'open'
+    END
+FROM (
+  SELECT site_id, COUNT(*) AS cnt
+  FROM internship_applications
+  WHERE status IN ('pending','approved')
+  GROUP BY site_id
+) c
+WHERE s.id = c.site_id
+   OR s.id NOT IN (SELECT site_id FROM internship_applications WHERE status IN ('pending','approved'));
+
 -- ── 6.5) เพิ่มฟิลด์วันที่ + ชั่วโมง/วัน ให้สถานที่ฝึกงาน ──
 ALTER TABLE internship_sites
   ADD COLUMN IF NOT EXISTS start_date    DATE,

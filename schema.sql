@@ -283,6 +283,37 @@ CREATE TRIGGER trg_guard_role
   BEFORE UPDATE ON public.users
   FOR EACH ROW EXECUTE FUNCTION public.guard_role_change();
 
+-- ── Trigger: อัปเดต taken + status ของ internship_sites อัตโนมัติ ──
+CREATE OR REPLACE FUNCTION public.recalc_site_taken()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  affected_ids TEXT[] := ARRAY[]::TEXT[];
+  sid TEXT; c INT; s_cap INT; s_status TEXT; new_status TEXT;
+BEGIN
+  IF TG_OP = 'DELETE' THEN affected_ids := ARRAY[OLD.site_id];
+  ELSIF TG_OP = 'UPDATE' THEN affected_ids := ARRAY[OLD.site_id, NEW.site_id];
+  ELSE affected_ids := ARRAY[NEW.site_id];
+  END IF;
+  FOREACH sid IN ARRAY affected_ids LOOP
+    IF sid IS NULL THEN CONTINUE; END IF;
+    SELECT COUNT(*) INTO c FROM internship_applications
+      WHERE site_id = sid AND status IN ('pending','approved');
+    SELECT cap, status INTO s_cap, s_status FROM internship_sites WHERE id = sid;
+    IF s_status = 'closed' THEN new_status := 'closed';
+    ELSIF c >= COALESCE(s_cap, 0) AND COALESCE(s_cap, 0) > 0 THEN new_status := 'full';
+    ELSE new_status := 'open';
+    END IF;
+    UPDATE internship_sites SET taken = c, status = new_status WHERE id = sid;
+  END LOOP;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; ELSE RETURN NEW; END IF;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_recalc_taken ON internship_applications;
+CREATE TRIGGER trg_recalc_taken
+  AFTER INSERT OR UPDATE OR DELETE ON internship_applications
+  FOR EACH ROW EXECUTE FUNCTION public.recalc_site_taken();
+
 -- ── Rubric overrides — แอดมินแก้รูบริกได้ ──
 CREATE TABLE IF NOT EXISTS rubric_overrides (
   key         TEXT PRIMARY KEY,
