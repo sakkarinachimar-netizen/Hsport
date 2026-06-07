@@ -237,6 +237,74 @@ const PfGrades = {
   },
 };
 
+// ประเภทกิจกรรม + สี/ป้ายแสดง
+const ACTIVITY_CATEGORIES = [
+  { key: "research",     label: "งานวิจัย",       color: "green",  dot: "dot-green"  },
+  { key: "presentation", label: "การนำเสนอ",     color: "blue",   dot: "dot-blue"   },
+  { key: "camp",         label: "ค่าย/สหกิจ",     color: "pink",   dot: "dot-pink"   },
+  { key: "workshop",     label: "อบรม/Workshop", color: "purple", dot: "dot-purple" },
+  { key: "other",        label: "อื่นๆ",          color: "gray",   dot: "dot-gray"   },
+];
+window.ACTIVITY_CATEGORIES = ACTIVITY_CATEGORIES;
+
+const PfActivities = {
+  async list() {
+    if (!_pf()) return [];
+    const { data, error } = await _pf()
+      .from('activities')
+      .select('*, activity_registrations(student_id)')
+      .order('date', { ascending: true });
+    if (error) throw error;
+    return data || [];
+  },
+  async save({ id, title, description, category, date, timeStart, timeEnd, location, cap, status }) {
+    if (!_pf()) return null;
+    const row = {
+      title, description: description || null,
+      category: category || 'other',
+      date, time_start: timeStart || null, time_end: timeEnd || null,
+      location: location || null,
+      cap: cap != null && cap !== "" ? +cap : null,
+      status: status || 'open',
+      updated_at: new Date().toISOString(),
+    };
+    if (id) {
+      const { error } = await _pf().from('activities').update(row).eq('id', id);
+      if (error) throw error;
+    } else {
+      row.created_by = window.pfCurrentUser ? window.pfCurrentUser.id : null;
+      const { error } = await _pf().from('activities').insert(row);
+      if (error) throw error;
+    }
+  },
+  async remove(id) {
+    if (!_pf()) return null;
+    const { error } = await _pf().from('activities').delete().eq('id', id);
+    if (error) throw error;
+  },
+  async register(activityId, studentId) {
+    if (!_pf()) return null;
+    const { error } = await _pf().from('activity_registrations').insert({
+      activity_id: activityId, student_id: studentId,
+    });
+    if (error) throw error;
+  },
+  async unregister(activityId, studentId) {
+    if (!_pf()) return null;
+    const { error } = await _pf().from('activity_registrations').delete()
+      .eq('activity_id', activityId).eq('student_id', studentId);
+    if (error) throw error;
+  },
+  // จำนวนผู้ลงทะเบียนจริง — embed array จาก list()
+  countRegistered(act) {
+    return (act.activity_registrations || []).length;
+  },
+  isRegistered(act, studentId) {
+    return (act.activity_registrations || []).some(r => r.student_id === studentId);
+  },
+};
+window.PfActivities = PfActivities;
+
 // ประเภทข้อสอบภาษาอังกฤษที่รองรับ
 const ENGLISH_EXAM_TYPES = [
   { key: "ielts",  label: "IELTS",  max: 9,   step: 0.5,  hint: "0–9" },

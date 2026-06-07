@@ -610,60 +610,150 @@ function coreLevelDesc(key, level) {
 
 /* ---------- Activities ---------- */
 function StudentActivities({ toast }) {
-  const cells = [
-    { d:"29", muted:true }, { d:"30", muted:true }, { d:"31", muted:true },
-    { d:"1" }, { d:"2" }, { d:"3" }, { d:"4" },
-    { d:"5" }, { d:"6" }, { d:"7" }, { d:"8" }, { d:"9" }, { d:"10" }, { d:"11" },
-    { d:"12" }, { d:"13" }, { d:"14" },
-    { d:"15", color:"green" }, { d:"16" }, { d:"17" },
-    { d:"18", color:"blue" },
-    { d:"19" }, { d:"20" }, { d:"21" },
-    { d:"22", color:"pink" }, { d:"23" }, { d:"24" }, { d:"25" },
-  ];
-  const [registered, setRegistered] = React.useState({});
-  const reg = (id) => { setRegistered(r => ({...r, [id]: true })); toast("ลงทะเบียนเรียบร้อย"); };
+  const backend = !!(window.PfActivities && window.PF_SUPABASE_READY && window.pfCurrentUser);
+  const [list, setList] = React.useState([]);
+  const [loading, setLoading] = React.useState(backend);
+  const [busy, setBusy] = React.useState(null);  // id ที่กำลังลงทะเบียน
+  const [calMonth, setCalMonth] = React.useState(() => {
+    const d = new Date(); return { year: d.getFullYear(), month: d.getMonth() };
+  });
+
+  const studentId = (window.pfCurrentUser || {}).id;
+  const cats = window.ACTIVITY_CATEGORIES || [];
+
+  const load = React.useCallback(async () => {
+    if (!backend) { setLoading(false); return; }
+    setLoading(true);
+    try { setList(await window.PfActivities.list()); }
+    catch (e) { toast("โหลดกิจกรรมไม่สำเร็จ: " + (e.message||e)); }
+    finally { setLoading(false); }
+  }, [backend, toast]);
+  React.useEffect(() => { load(); }, [load]);
+
+  const register = async (a) => {
+    setBusy(a.id);
+    try {
+      await window.PfActivities.register(a.id, studentId);
+      toast("ลงทะเบียนเรียบร้อย");
+      await load();
+    } catch (e) {
+      toast(String(e.message||e).includes("duplicate") ? "ลงทะเบียนไว้แล้ว" : "ลงทะเบียนไม่สำเร็จ: " + (e.message||e));
+    } finally { setBusy(null); }
+  };
+  const cancel = async (a) => {
+    if (!confirm("ยกเลิกการลงทะเบียน?")) return;
+    setBusy(a.id);
+    try { await window.PfActivities.unregister(a.id, studentId); toast("ยกเลิกแล้ว"); await load(); }
+    catch (e) { toast("ยกเลิกไม่สำเร็จ: " + (e.message||e)); }
+    finally { setBusy(null); }
+  };
+
+  // จัดกลุ่มกิจกรรมตามวัน (string YYYY-MM-DD) สำหรับปฏิทิน
+  const byDate = {};
+  list.forEach(a => { (byDate[a.date] = byDate[a.date] || []).push(a); });
+
+  // สร้าง grid ปฏิทินของเดือนปัจจุบัน
+  const buildCal = () => {
+    const first = new Date(calMonth.year, calMonth.month, 1);
+    const daysInMonth = new Date(calMonth.year, calMonth.month + 1, 0).getDate();
+    const startDow = first.getDay(); // 0=อา.
+    const cells = [];
+    // เติม mute ของเดือนก่อน
+    const prevDays = new Date(calMonth.year, calMonth.month, 0).getDate();
+    for (let i = startDow - 1; i >= 0; i--) cells.push({ d: prevDays - i, muted: true });
+    for (let d = 1; d <= daysInMonth; d++) {
+      const iso = `${calMonth.year}-${String(calMonth.month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      const events = byDate[iso] || [];
+      const cat = events[0] ? cats.find(c => c.key === events[0].category) : null;
+      cells.push({ d, iso, count: events.length, color: cat ? cat.color : null, events });
+    }
+    while (cells.length % 7 !== 0) cells.push({ d: cells.length, muted: true });
+    return cells;
+  };
+  const cells = buildCal();
+  const today = new Date();
+  const upcoming = list
+    .filter(a => a.date >= `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,"0")}-${String(today.getDate()).padStart(2,"0")}` && a.status === "open")
+    .slice(0, 20);
+
+  const monthNames = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
 
   return (
     <div className="page">
       <h2 style={{fontSize:22}}>กิจกรรมและโครงการ</h2>
 
       <div className="card">
-        <h3>ปฏิทินกิจกรรม</h3>
+        <div className="row-between" style={{marginBottom:8}}>
+          <h3 style={{margin:0}}>ปฏิทินกิจกรรม</h3>
+          <div className="row gap-2" style={{alignItems:"center"}}>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setCalMonth(m => {
+              const nm = m.month === 0 ? 11 : m.month - 1;
+              const ny = m.month === 0 ? m.year - 1 : m.year;
+              return { year: ny, month: nm };
+            })}>‹</button>
+            <span className="mono"><b>{monthNames[calMonth.month]} {calMonth.year + 543}</b></span>
+            <button className="btn btn-ghost btn-sm" onClick={()=>setCalMonth(m => {
+              const nm = m.month === 11 ? 0 : m.month + 1;
+              const ny = m.month === 11 ? m.year + 1 : m.year;
+              return { year: ny, month: nm };
+            })}>›</button>
+          </div>
+        </div>
         <div className="cal">
           <div className="cal-grid">
             {["อา","จ","อ","พ","พฤ","ศ","ส"].map(h => <div className="cal-h" key={h}>{h}</div>)}
-            {cells.map((c,i)=>(
-              <div key={i} className={`cal-cell ${c.muted?"muted":""} ${c.color||""}`}>{c.d}</div>
+            {cells.map((c,i) => (
+              <div key={i} className={`cal-cell ${c.muted?"muted":""} ${c.color||""}`}
+                title={c.events && c.events.length ? c.events.map(e=>e.title).join("\n") : ""}>
+                {c.d}
+                {!c.muted && c.count > 1 && <span className="small muted" style={{display:"block",fontSize:10}}>+{c.count}</span>}
+              </div>
             ))}
           </div>
           <div className="cal-legend">
-            <span><span className="dot dot-green"></span> งานวิจัย</span>
-            <span><span className="dot dot-blue"></span> การนำเสนอ</span>
-            <span><span className="dot dot-pink"></span> ค่าย/สหกิจ</span>
+            {cats.map(c => (
+              <span key={c.key}><span className={`dot ${c.dot}`}></span> {c.label}</span>
+            ))}
           </div>
         </div>
       </div>
 
-      <h3 className="mt-6">กิจกรรมที่กำลังจะมาถึง</h3>
+      <h3 className="mt-6">กิจกรรมที่กำลังจะมาถึง {upcoming.length > 0 && <span className="muted small">({upcoming.length})</span>}</h3>
+      {loading ? (
+        <div className="muted" style={{padding:20}}>กำลังโหลด…</div>
+      ) : upcoming.length === 0 ? (
+        <div className="card muted" style={{padding:30,textAlign:"center"}}>ยังไม่มีกิจกรรมที่จะจัด</div>
+      ) : (
       <div style={{display:"flex", flexDirection:"column", gap:14}}>
-        {ACTIVITIES.map(a => (
-          <div className="event" key={a.id}>
-            <div className="body" style={{flex:1}}>
-              <h4>{a.title}</h4>
-              <div className="muted small">{a.desc}</div>
-              <div className="meta">
-                <span>📅 {a.date}</span>
-                <span>📍 {a.place}</span>
-                {a.time && <span>🕐 {a.time}</span>}
-                {a.seats && <span>👥 {a.seats}</span>}
+        {upcoming.map(a => {
+          const cat = cats.find(c => c.key === a.category);
+          const isReg = backend ? window.PfActivities.isRegistered(a, studentId) : false;
+          const regCount = window.PfActivities ? window.PfActivities.countRegistered(a) : 0;
+          const full = a.cap != null && a.cap > 0 && regCount >= a.cap;
+          return (
+            <div className="event" key={a.id}>
+              <div className="body" style={{flex:1}}>
+                <div className="row gap-2"><h4 style={{margin:0}}>{a.title}</h4>
+                  {cat && <Pill kind={cat.color}>{cat.label}</Pill>}
+                </div>
+                {a.description && <div className="muted small mt-2">{a.description}</div>}
+                <div className="meta">
+                  <span>📅 {a.date}</span>
+                  {a.time_start && <span>🕐 {a.time_start}{a.time_end ? `–${a.time_end}` : ""}</span>}
+                  {a.location && <span>📍 {a.location}</span>}
+                  {a.cap != null && a.cap > 0 && <span>👥 {regCount}/{a.cap}</span>}
+                </div>
               </div>
+              {isReg
+                ? <div className="row gap-2"><Pill kind="green">✓ ลงทะเบียนแล้ว</Pill><button className="btn btn-ghost btn-sm" onClick={()=>cancel(a)} disabled={busy===a.id}>ยกเลิก</button></div>
+                : full
+                  ? <Pill kind="red">เต็ม</Pill>
+                  : <button className="btn btn-primary btn-sm" onClick={()=>register(a)} disabled={busy===a.id || !backend}>{busy===a.id?"กำลังลง…":"ลงทะเบียน"}</button>}
             </div>
-            {registered[a.id]
-              ? <Pill kind="green">✓ ลงทะเบียนแล้ว</Pill>
-              : <button className={`btn ${a.cta.kind}`} onClick={()=>reg(a.id)}>{a.cta.label}</button>}
-          </div>
-        ))}
+          );
+        })}
       </div>
+      )}
     </div>
   );
 }

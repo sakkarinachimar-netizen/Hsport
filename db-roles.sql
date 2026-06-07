@@ -113,6 +113,54 @@ DROP POLICY IF EXISTS "grades_admin_write" ON student_grades;
 CREATE POLICY "grades_admin_write" ON student_grades FOR ALL
   USING (current_user_role() = 'admin');
 
+-- ── 6.10) ตารางกิจกรรม + การลงทะเบียน ──
+CREATE TABLE IF NOT EXISTS activities (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title        TEXT NOT NULL,
+  description  TEXT,
+  category     TEXT NOT NULL DEFAULT 'other'
+               CHECK (category IN ('research','presentation','camp','workshop','other')),
+  date         DATE NOT NULL,
+  time_start   TIME,
+  time_end     TIME,
+  location     TEXT,
+  cap          INTEGER,
+  status       TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed')),
+  created_by   UUID REFERENCES users(id),
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS activity_registrations (
+  activity_id   UUID NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+  student_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  registered_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (activity_id, student_id)
+);
+
+ALTER TABLE activities              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activity_registrations  ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "activities_select" ON activities;
+CREATE POLICY "activities_select" ON activities FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "activities_manage" ON activities;
+CREATE POLICY "activities_manage" ON activities FOR ALL
+  USING (public.current_user_role() IN ('teacher','admin'));
+
+DROP POLICY IF EXISTS "reg_select" ON activity_registrations;
+CREATE POLICY "reg_select" ON activity_registrations FOR SELECT
+  USING (student_id = auth.uid() OR public.current_user_role() IN ('teacher','admin'));
+
+DROP POLICY IF EXISTS "reg_self_write" ON activity_registrations;
+CREATE POLICY "reg_self_write" ON activity_registrations FOR ALL
+  USING (student_id = auth.uid());
+
+DROP POLICY IF EXISTS "reg_staff_write" ON activity_registrations;
+CREATE POLICY "reg_staff_write" ON activity_registrations FOR ALL
+  USING (public.current_user_role() IN ('teacher','admin'));
+
 -- ── 6.9) ตารางคะแนนสอบภาษาอังกฤษ ──
 CREATE TABLE IF NOT EXISTS student_english_exams (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -449,59 +449,133 @@ function AdminUsers({ toast }) {
 
 /* ---------- Activities mgmt ---------- */
 function AdminActivities({ toast }) {
-  const [list, setList] = React.useState(ADMIN_ACTIVITIES);
-  const [open, setOpen] = React.useState(false);
-  const [form, setForm] = React.useState({ title:"", date:"", category:"ค่าย", cap:30 });
-  const create = (e) => {
-    e.preventDefault();
-    if (!form.title || !form.date) { toast("กรอกข้อมูลให้ครบ"); return; }
-    setList(l => [{ id:"a"+(l.length+10), ...form, reg:0, status:"open" }, ...l]);
-    setOpen(false); setForm({ title:"", date:"", category:"ค่าย", cap:30 });
-    toast("สร้างกิจกรรมเรียบร้อย");
+  const backend = !!(window.PfActivities && window.PF_SUPABASE_READY);
+  const [list, setList] = React.useState([]);
+  const [loading, setLoading] = React.useState(backend);
+  const [open, setOpen] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+
+  const blank = { title:"", description:"", date:"", timeStart:"", timeEnd:"", location:"", category:"camp", cap:"", status:"open" };
+
+  const load = React.useCallback(async () => {
+    if (!backend) { setLoading(false); return; }
+    setLoading(true);
+    try { setList(await window.PfActivities.list()); }
+    catch (e) { toast("โหลดกิจกรรมไม่สำเร็จ: " + (e.message||e)); }
+    finally { setLoading(false); }
+  }, [backend, toast]);
+  React.useEffect(() => { load(); }, [load]);
+
+  const openNew = () => setOpen({ ...blank });
+  const openEdit = (a) => setOpen({
+    id: a.id, title: a.title || "", description: a.description || "",
+    date: a.date || "", timeStart: a.time_start || "", timeEnd: a.time_end || "",
+    location: a.location || "", category: a.category || "other",
+    cap: a.cap != null ? String(a.cap) : "", status: a.status || "open",
+  });
+
+  const save = async () => {
+    if (!open.title.trim() || !open.date) { toast("กรอกชื่อ + วันที่"); return; }
+    setBusy(true);
+    try {
+      await window.PfActivities.save(open);
+      toast("บันทึกกิจกรรมเรียบร้อย");
+      setOpen(null); await load();
+    } catch (e) { toast("บันทึกไม่สำเร็จ: " + (e.message||e)); }
+    finally { setBusy(false); }
   };
+
+  const remove = async () => {
+    if (!confirm(`ลบกิจกรรม "${open.title}" ?`)) return;
+    setBusy(true);
+    try {
+      await window.PfActivities.remove(open.id);
+      toast("ลบเรียบร้อย");
+      setOpen(null); await load();
+    } catch (e) { toast("ลบไม่สำเร็จ: " + (e.message||e)); }
+    finally { setBusy(false); }
+  };
+
+  const cats = window.ACTIVITY_CATEGORIES || [];
   return (
     <div className="page">
       <div className="row-between" style={{marginBottom:18}}>
-        <h2 className="mb-0" style={{fontSize:22}}>จัดการกิจกรรม</h2>
-        <button className="btn btn-primary btn-sm" onClick={()=>setOpen(true)}><Icons.plus/> สร้างกิจกรรม</button>
+        <div>
+          <h2 className="mb-0" style={{fontSize:22}}>จัดการกิจกรรม</h2>
+          <div className="muted small">เพิ่ม/แก้ไขกิจกรรมและโครงการที่นักเรียนจะลงทะเบียน</div>
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={openNew}><Icons.plus/> สร้างกิจกรรม</button>
       </div>
       <div className="card" style={{padding:0, overflow:"hidden"}}>
         <table className="table">
-          <thead><tr><th>ชื่อกิจกรรม</th><th>วันที่</th><th>ประเภท</th><th>ลงทะเบียน</th><th>สถานะ</th><th></th></tr></thead>
+          <thead><tr><th>ชื่อกิจกรรม</th><th>ประเภท</th><th>วันที่</th><th>เวลา</th><th>สถานที่</th><th>ลงทะเบียน</th><th>สถานะ</th><th className="text-right">การจัดการ</th></tr></thead>
           <tbody>
-            {list.map(a => (
-              <tr key={a.id}>
-                <td><b>{a.title}</b></td>
-                <td>{a.date}</td>
-                <td><Pill kind="purple">{a.category}</Pill></td>
-                <td>
-                  <div className="row gap-2"><span className="mono">{a.reg}/{a.cap}</span>
-                    <div className="meter" style={{width:100}}><span style={{width:(a.reg/a.cap*100)+"%"}}></span></div>
-                  </div>
-                </td>
-                <td>{a.status === "open" ? <Pill kind="green">เปิดรับ</Pill> : <Pill kind="gray">ปิด</Pill>}</td>
-                <td className="text-right">
-                  <button className="btn btn-ghost btn-sm" onClick={()=>toast(`ดูรายชื่อผู้ลงทะเบียน: ${a.title}`)}>รายชื่อ</button>
-                </td>
-              </tr>
-            ))}
+            {loading ? (
+              <tr><td colSpan={8} className="muted" style={{padding:20,textAlign:"center"}}>กำลังโหลด…</td></tr>
+            ) : list.length === 0 ? (
+              <tr><td colSpan={8} className="muted" style={{padding:30,textAlign:"center"}}>ยังไม่มีกิจกรรม — กด "+ สร้างกิจกรรม"</td></tr>
+            ) : list.map(a => {
+              const cat = cats.find(c => c.key === a.category);
+              const reg = window.PfActivities.countRegistered(a);
+              return (
+                <tr key={a.id}>
+                  <td><b>{a.title}</b>{a.description && <div className="small muted">{a.description.slice(0,60)}{a.description.length>60?"…":""}</div>}</td>
+                  <td><Pill kind={cat ? cat.color : "gray"}>{cat ? cat.label : a.category}</Pill></td>
+                  <td className="mono small">{a.date}</td>
+                  <td className="mono small">{a.time_start ? `${a.time_start}–${a.time_end || ""}` : "—"}</td>
+                  <td className="small">{a.location || "—"}</td>
+                  <td>
+                    {a.cap != null && a.cap > 0 ? (
+                      <div className="row gap-2"><span className="mono">{reg}/{a.cap}</span>
+                        <div className="meter" style={{width:80}}><span style={{width:Math.min(reg/a.cap*100, 100)+"%"}}></span></div>
+                      </div>
+                    ) : <span className="mono">{reg}</span>}
+                  </td>
+                  <td>{a.status === "open" ? <Pill kind="green">เปิดรับ</Pill> : <Pill kind="gray">ปิด</Pill>}</td>
+                  <td className="text-right">
+                    <button className="btn btn-ghost btn-sm" onClick={()=>openEdit(a)}>แก้ไข</button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
       {open && (
-        <Modal title="สร้างกิจกรรมใหม่" onClose={()=>setOpen(false)}
+        <Modal title={open.id ? "แก้ไขกิจกรรม" : "สร้างกิจกรรมใหม่"} onClose={()=>setOpen(null)} width={620}
           footer={<>
-            <button className="btn btn-ghost" onClick={()=>setOpen(false)}>ยกเลิก</button>
-            <button className="btn btn-primary" onClick={create}>สร้าง</button>
+            {open.id && <button className="btn btn-ghost" onClick={remove} disabled={busy} style={{marginRight:"auto",color:"#dc2626"}}>ลบ</button>}
+            <button className="btn btn-ghost" onClick={()=>setOpen(null)}>ยกเลิก</button>
+            <button className="btn btn-primary" onClick={save} disabled={busy}>{busy?"กำลังบันทึก…":"บันทึก"}</button>
           </>}>
-          <div className="field"><label>ชื่อกิจกรรม</label><input className="input" value={form.title} onChange={e=>setForm(f=>({...f, title:e.target.value}))}/></div>
+          <div className="field"><label>ชื่อกิจกรรม *</label>
+            <input className="input" value={open.title} onChange={e=>setOpen(s=>({...s, title:e.target.value}))} placeholder="เช่น ค่ายวิทยาศาสตร์สุขภาพ"/></div>
+          <div className="field"><label>รายละเอียด</label>
+            <textarea className="textarea" rows={2} value={open.description} onChange={e=>setOpen(s=>({...s, description:e.target.value}))} placeholder="อธิบายกิจกรรม กลุ่มเป้าหมาย ฯลฯ"/></div>
           <div className="row gap-4">
-            <div className="field" style={{flex:1}}><label>วันที่</label><input className="input" type="date" value={form.date} onChange={e=>setForm(f=>({...f, date:e.target.value}))}/></div>
             <div className="field" style={{flex:1}}><label>ประเภท</label>
-              <select className="select" value={form.category} onChange={e=>setForm(f=>({...f, category:e.target.value}))}>
-                <option>ค่าย</option><option>การนำเสนอ</option><option>อบรม</option><option>งานวิจัย</option>
+              <select className="select" value={open.category} onChange={e=>setOpen(s=>({...s, category:e.target.value}))}>
+                {cats.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
               </select></div>
-            <div className="field" style={{flex:1}}><label>จำนวนที่รับ</label><input className="input" type="number" value={form.cap} onChange={e=>setForm(f=>({...f, cap:+e.target.value}))}/></div>
+            <div className="field" style={{flex:1}}><label>สถานะ</label>
+              <select className="select" value={open.status} onChange={e=>setOpen(s=>({...s, status:e.target.value}))}>
+                <option value="open">เปิดรับสมัคร</option>
+                <option value="closed">ปิด</option>
+              </select></div>
+          </div>
+          <div className="row gap-4">
+            <div className="field" style={{flex:1}}><label>วันที่ *</label>
+              <input className="input" type="date" value={open.date} onChange={e=>setOpen(s=>({...s, date:e.target.value}))}/></div>
+            <div className="field" style={{flex:1}}><label>เวลาเริ่ม</label>
+              <input className="input" type="time" value={open.timeStart} onChange={e=>setOpen(s=>({...s, timeStart:e.target.value}))}/></div>
+            <div className="field" style={{flex:1}}><label>เวลาเลิก</label>
+              <input className="input" type="time" value={open.timeEnd} onChange={e=>setOpen(s=>({...s, timeEnd:e.target.value}))}/></div>
+          </div>
+          <div className="row gap-4">
+            <div className="field" style={{flex:2}}><label>สถานที่</label>
+              <input className="input" value={open.location} onChange={e=>setOpen(s=>({...s, location:e.target.value}))} placeholder="เช่น ห้องประชุมใหญ่"/></div>
+            <div className="field" style={{flex:1}}><label>จำนวนที่รับ</label>
+              <input className="input" type="number" min="0" value={open.cap} onChange={e=>setOpen(s=>({...s, cap:e.target.value}))} placeholder="ไม่จำกัดเว้นว่าง"/></div>
           </div>
         </Modal>
       )}
