@@ -237,6 +237,45 @@ const PfGrades = {
   },
 };
 
+// ประเภทข้อสอบภาษาอังกฤษที่รองรับ
+const ENGLISH_EXAM_TYPES = [
+  { key: "ielts",  label: "IELTS",  max: 9,   step: 0.5,  hint: "0–9" },
+  { key: "toefl",  label: "TOEFL",  max: 120, step: 1,    hint: "0–120 (iBT)" },
+  { key: "cutep",  label: "CUTEP",  max: 120, step: 1,    hint: "0–120" },
+];
+window.ENGLISH_EXAM_TYPES = ENGLISH_EXAM_TYPES;
+
+const PfEnglishExams = {
+  async listByStudent(studentId) {
+    if (!_pf()) return [];
+    const { data, error } = await _pf().from('student_english_exams').select('*')
+      .eq('student_id', studentId).order('exam_date', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
+  async save({ id, studentId, examType, score, examDate, notes }) {
+    if (!_pf()) return null;
+    const row = {
+      student_id: studentId, exam_type: examType,
+      score: score != null && score !== "" ? +score : null,
+      exam_date: examDate || null, notes: notes || null,
+      updated_at: new Date().toISOString(),
+    };
+    if (id) {
+      const { error } = await _pf().from('student_english_exams').update(row).eq('id', id);
+      if (error) throw error;
+    } else {
+      const { error } = await _pf().from('student_english_exams').insert(row);
+      if (error) throw error;
+    }
+  },
+  async remove(id) {
+    if (!_pf()) return null;
+    const { error } = await _pf().from('student_english_exams').delete().eq('id', id);
+    if (error) throw error;
+  },
+};
+
 const PfRubrics = {
   async list() {
     if (!_pf()) return [];
@@ -301,4 +340,4 @@ async function applyRubricOverrides() {
   } catch (e) { /* ignore */ }
 }
 
-Object.assign(window, { PfUsers, PfEvidence, PfEvaluations, PfInternship, PfRubrics, PfGrades, applyRubricOverrides, computeMyLevels });
+Object.assign(window, { PfUsers, PfEvidence, PfEvaluations, PfInternship, PfRubrics, PfGrades, PfEnglishExams, applyRubricOverrides, computeMyLevels });

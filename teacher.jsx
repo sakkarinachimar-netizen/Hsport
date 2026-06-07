@@ -287,16 +287,20 @@ function TeacherStudents({ toast }) {
   );
 
   const [grades, setGrades] = React.useState({ rows: [], avg: {} });
+  const [exams, setExams] = React.useState([]);
 
   const openProfile = async (s) => {
-    setOpenOf(s); setLevels({}); setLoadingLevels(true); setGrades({ rows: [], avg: {} });
+    setOpenOf(s); setLevels({}); setLoadingLevels(true);
+    setGrades({ rows: [], avg: {} }); setExams([]);
     try {
-      const [l, gradeRows] = await Promise.all([
+      const [l, gradeRows, examRows] = await Promise.all([
         window.computeMyLevels(s.id),
         window.PfGrades ? window.PfGrades.listByStudent(s.id) : Promise.resolve([]),
+        window.PfEnglishExams ? window.PfEnglishExams.listByStudent(s.id) : Promise.resolve([]),
       ]);
       setLevels(l || {});
       setGrades({ rows: gradeRows, avg: window.PfGrades ? window.PfGrades.averagesBySubject(gradeRows) : {} });
+      setExams(examRows || []);
     } catch (e) { /* ignore */ }
     finally { setLoadingLevels(false); }
   };
@@ -445,6 +449,33 @@ function TeacherStudents({ toast }) {
                     );
                   })()}
                 </>
+              )}
+            </>
+          )}
+
+          {window.PfEnglishExams && (
+            <>
+              <div className="divider-h"></div>
+              <h3>🎓 คะแนนสอบภาษาอังกฤษ</h3>
+              {exams.length === 0 ? (
+                <div className="muted small" style={{padding:14}}>ยังไม่มีผลสอบ</div>
+              ) : (
+                <table className="table">
+                  <thead><tr><th>ประเภท</th><th>คะแนน</th><th>วันสอบ</th><th>หมายเหตุ</th></tr></thead>
+                  <tbody>
+                    {exams.map(e => {
+                      const t = (window.ENGLISH_EXAM_TYPES||[]).find(x => x.key === e.exam_type);
+                      return (
+                        <tr key={e.id}>
+                          <td><Pill kind="blue">{t ? t.label : e.exam_type}</Pill></td>
+                          <td className="mono"><b>{e.score != null ? Number(e.score) : "—"}</b>{t ? <span className="muted small"> / {t.max}</span> : null}</td>
+                          <td className="mono small">{e.exam_date || "—"}</td>
+                          <td className="muted small">{e.notes || "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               )}
             </>
           )}

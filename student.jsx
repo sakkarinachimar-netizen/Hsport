@@ -764,6 +764,131 @@ function StudentGradesCard({ studentId, toast, refreshKey, onChange }) {
   );
 }
 
+/* ---------- English exams card (IELTS / TOEFL / CUTEP) ---------- */
+function StudentEnglishExamsCard({ studentId, toast }) {
+  const backend = !!(window.PfEnglishExams && window.PF_SUPABASE_READY);
+  const [rows, setRows] = React.useState([]);
+  const [loading, setLoading] = React.useState(backend);
+  const [open, setOpen] = React.useState(null); // {id?, examType, score, examDate, notes}
+  const [busy, setBusy] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    if (!backend) { setLoading(false); return; }
+    setLoading(true);
+    try { setRows(await window.PfEnglishExams.listByStudent(studentId)); }
+    catch (e) { toast("โหลดผลสอบไม่สำเร็จ: " + (e.message||e)); }
+    finally { setLoading(false); }
+  }, [backend, studentId, toast]);
+  React.useEffect(() => { load(); }, [load]);
+
+  const openNew = () => setOpen({ examType: "ielts", score: "", examDate: "", notes: "" });
+  const openEdit = (r) => setOpen({
+    id: r.id, examType: r.exam_type,
+    score: r.score != null ? String(r.score) : "",
+    examDate: r.exam_date || "", notes: r.notes || "",
+  });
+
+  const save = async () => {
+    if (!open.examType) { toast("เลือกประเภทข้อสอบ"); return; }
+    if (open.score === "" || open.score == null) { toast("กรอกคะแนน"); return; }
+    if (!open.examDate) { toast("เลือกวันสอบ"); return; }
+    setBusy(true);
+    try {
+      await window.PfEnglishExams.save({
+        id: open.id, studentId,
+        examType: open.examType, score: open.score,
+        examDate: open.examDate, notes: open.notes,
+      });
+      toast("บันทึกผลสอบเรียบร้อย");
+      setOpen(null); await load();
+    } catch (e) { toast("บันทึกไม่สำเร็จ: " + (e.message||e)); }
+    finally { setBusy(false); }
+  };
+
+  const remove = async () => {
+    if (!confirm("ลบผลสอบนี้?")) return;
+    setBusy(true);
+    try {
+      await window.PfEnglishExams.remove(open.id);
+      toast("ลบเรียบร้อย");
+      setOpen(null); await load();
+    } catch (e) { toast("ลบไม่สำเร็จ: " + (e.message||e)); }
+    finally { setBusy(false); }
+  };
+
+  const typeMeta = ENGLISH_EXAM_TYPES.find(t => t.key === (open && open.examType));
+
+  if (!backend) return null;
+  return (
+    <div className="card mt-4">
+      <div className="row-between" style={{marginBottom:8}}>
+        <h3 style={{margin:0}}>🎓 คะแนนสอบภาษาอังกฤษ</h3>
+        <button className="btn btn-primary btn-sm" onClick={openNew}>+ เพิ่มผลสอบ</button>
+      </div>
+      {loading ? (
+        <div className="muted" style={{padding:14}}>กำลังโหลด…</div>
+      ) : rows.length === 0 ? (
+        <div className="muted small" style={{padding:14}}>ยังไม่มีผลสอบ — กด "+ เพิ่มผลสอบ" เพื่อบันทึก (IELTS / TOEFL / CUTEP)</div>
+      ) : (
+        <table className="table">
+          <thead><tr><th>ประเภท</th><th>คะแนน</th><th>วันสอบ</th><th>หมายเหตุ</th><th></th></tr></thead>
+          <tbody>
+            {rows.map(r => {
+              const t = ENGLISH_EXAM_TYPES.find(x => x.key === r.exam_type);
+              return (
+                <tr key={r.id}>
+                  <td><Pill kind="blue">{t ? t.label : r.exam_type}</Pill></td>
+                  <td className="mono"><b>{r.score != null ? Number(r.score) : "—"}</b>{t ? <span className="muted small"> / {t.max}</span> : null}</td>
+                  <td className="mono small">{r.exam_date || "—"}</td>
+                  <td className="muted small">{r.notes || "—"}</td>
+                  <td className="text-right">
+                    <button className="btn btn-ghost btn-sm" onClick={()=>openEdit(r)}>แก้</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+
+      {open && (
+        <Modal title={open.id ? "แก้ไขผลสอบ" : "เพิ่มผลสอบภาษาอังกฤษ"} onClose={()=>setOpen(null)} width={520}
+          footer={<>
+            {open.id && <button className="btn btn-ghost" onClick={remove} disabled={busy} style={{marginRight:"auto",color:"#dc2626"}}>ลบ</button>}
+            <button className="btn btn-ghost" onClick={()=>setOpen(null)}>ยกเลิก</button>
+            <button className="btn btn-primary" onClick={save} disabled={busy}>{busy?"กำลังบันทึก…":"บันทึก"}</button>
+          </>}>
+          <div className="row gap-4">
+            <div className="field" style={{flex:1}}>
+              <label>ประเภทข้อสอบ</label>
+              <select className="select" value={open.examType} onChange={e=>setOpen(s=>({...s, examType:e.target.value}))}>
+                {ENGLISH_EXAM_TYPES.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+              </select>
+            </div>
+            <div className="field" style={{flex:1}}>
+              <label>วันที่สอบ</label>
+              <input className="input" type="date" value={open.examDate} onChange={e=>setOpen(s=>({...s, examDate:e.target.value}))}/>
+            </div>
+          </div>
+          <div className="field">
+            <label>คะแนน {typeMeta ? `(${typeMeta.hint})` : ""}</label>
+            <input className="input mono" type="number" min="0"
+              max={typeMeta ? typeMeta.max : undefined}
+              step={typeMeta ? typeMeta.step : "any"}
+              value={open.score} onChange={e=>setOpen(s=>({...s, score:e.target.value}))}/>
+          </div>
+          <div className="field">
+            <label>หมายเหตุ (ไม่จำเป็น)</label>
+            <textarea className="textarea" rows={2} value={open.notes}
+              onChange={e=>setOpen(s=>({...s, notes:e.target.value}))}
+              placeholder="เช่น สถานที่สอบ, รหัสรอบสอบ"/>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 /* ---------- Profile ---------- */
 function StudentProfile({ toast, onLogout }) {
   const [u, setU] = React.useState(currentProfile());
@@ -815,6 +940,7 @@ function StudentProfile({ toast, onLogout }) {
           </div>
 
           <StudentGradesCard studentId={(window.pfCurrentUser||{}).id} toast={toast}/>
+          <StudentEnglishExamsCard studentId={(window.pfCurrentUser||{}).id} toast={toast}/>
 
           <div className="card mt-4">
             <h3>ความก้าวหน้าล่าสุด</h3>

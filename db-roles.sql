@@ -113,6 +113,32 @@ DROP POLICY IF EXISTS "grades_admin_write" ON student_grades;
 CREATE POLICY "grades_admin_write" ON student_grades FOR ALL
   USING (current_user_role() = 'admin');
 
+-- ── 6.9) ตารางคะแนนสอบภาษาอังกฤษ ──
+CREATE TABLE IF NOT EXISTS student_english_exams (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  exam_type   TEXT NOT NULL CHECK (exam_type IN ('ielts','toefl','cutep')),
+  score       NUMERIC(5,2),
+  exam_date   DATE,
+  notes       TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE student_english_exams ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "english_select" ON student_english_exams;
+CREATE POLICY "english_select" ON student_english_exams FOR SELECT
+  USING (student_id = auth.uid() OR current_user_role() IN ('teacher','admin'));
+
+DROP POLICY IF EXISTS "english_self_write" ON student_english_exams;
+CREATE POLICY "english_self_write" ON student_english_exams FOR ALL
+  USING (student_id = auth.uid());
+
+DROP POLICY IF EXISTS "english_admin_write" ON student_english_exams;
+CREATE POLICY "english_admin_write" ON student_english_exams FOR ALL
+  USING (current_user_role() = 'admin');
+
 -- ── 6.7) Trigger อัปเดต taken + status ของสถานที่ฝึกงานอัตโนมัติ ──
 -- เมื่อมีนักเรียนสมัคร/ถูกปฏิเสธ/ลบใบสมัคร → คำนวณใหม่ทันที
 -- นับเฉพาะใบสมัครสถานะ pending/approved (rejected ไม่เอามานับ)
