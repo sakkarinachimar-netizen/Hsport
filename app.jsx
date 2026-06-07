@@ -38,6 +38,7 @@ function Login({ onLogin }) {
         const profile = await window.PfAuth.getProfile();
         if (!profile) throw new Error("ไม่พบข้อมูลผู้ใช้ในระบบ (ติดต่อผู้ดูแล)");
         window.pfCurrentUser = profile;
+        await window.applyRubricOverrides?.();
         onLogin(profile.role, profile);
       } catch (e2) {
         setErr(e2?.message === "Invalid login credentials"
@@ -220,6 +221,7 @@ function App() {
           const profile = await window.PfAuth.getProfile();
           if (profile && alive) {
             window.pfCurrentUser = profile;
+            await window.applyRubricOverrides?.();
             login(profile.role);
           }
         }

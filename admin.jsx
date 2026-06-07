@@ -511,48 +511,195 @@ function AdminActivities({ toast }) {
 
 /* ---------- Rubrics mgmt ---------- */
 function AdminRubrics({ toast }) {
-  const items = [
-    { name:"การจัดการตนเอง",        type:"หลัก",   levels:5, edit:"3 เดือนที่แล้ว" },
-    { name:"การคิดขั้นสูง",          type:"หลัก",   levels:5, edit:"3 เดือนที่แล้ว" },
-    { name:"การสื่อสาร",              type:"หลัก",   levels:5, edit:"1 เดือนที่แล้ว" },
-    { name:"ทำงานเป็นทีม",            type:"หลัก",   levels:5, edit:"3 เดือนที่แล้ว" },
-    { name:"พลเมืองเข้มแข็ง",         type:"หลัก",   levels:5, edit:"6 เดือนที่แล้ว" },
-    { name:"อยู่ร่วมกับธรรมชาติ",      type:"หลัก",   levels:5, edit:"6 เดือนที่แล้ว" },
-    { name:"ใฝ่รู้และสืบเสาะ",         type:"เฉพาะ", levels:5, edit:"2 สัปดาห์ก่อน" },
-    { name:"เข้าอกเข้าใจ",            type:"เฉพาะ", levels:5, edit:"3 เดือนที่แล้ว" },
-    { name:"จริยธรรมและความรับผิดชอบ", type:"เฉพาะ", levels:5, edit:"3 เดือนที่แล้ว" },
-    { name:"ยืดหยุ่นและปรับตัว",       type:"เฉพาะ", levels:5, edit:"2 เดือนที่แล้ว" },
-  ];
+  const backend = !!(window.PfRubrics && window.PF_SUPABASE_READY);
+  const all = React.useMemo(() => [
+    ...CORE_COMPETENCIES.map(c => ({ ...c, type:"core" })),
+    ...SPEC_COMPETENCIES.map(c => ({ ...c, type:"spec" })),
+  ], []);
+  const [overrides, setOverrides] = React.useState({});  // key -> {data, updated_at}
+  const [editing, setEditing] = React.useState(null);    // working draft
+  const [editingMeta, setEditingMeta] = React.useState(null); // {key, type}
+  const [busy, setBusy] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    if (!backend) return;
+    try {
+      const rows = await window.PfRubrics.list();
+      const m = {};
+      (rows || []).forEach(r => { m[r.key] = r; });
+      setOverrides(m);
+    } catch (e) { toast("โหลด override ไม่สำเร็จ: " + (e.message||e)); }
+  }, [backend, toast]);
+  React.useEffect(() => { load(); }, [load]);
+
+  // ผสานค่าเริ่มต้น + override (override ชนะ)
+  const merged = React.useMemo(() => all.map(c => ({
+    ...c,
+    ...(overrides[c.key]?.data || {}),
+  })), [all, overrides]);
+
+  const fmtAgo = (iso) => {
+    if (!iso) return "—";
+    const d = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (d < 60) return "เมื่อกี้";
+    if (d < 3600) return Math.round(d/60) + " นาทีที่แล้ว";
+    if (d < 86400) return Math.round(d/3600) + " ชั่วโมงที่แล้ว";
+    return Math.round(d/86400) + " วันที่แล้ว";
+  };
+
+  const startEdit = (c) => {
+    // clone ลึก เพื่อแก้ไขโดยไม่กระทบของจริง
+    const draft = JSON.parse(JSON.stringify(c));
+    if (c.type === "spec" && !draft.subs) draft.subs = [];
+    if (c.type === "spec" && !draft.tools) draft.tools = [];
+    setEditing(draft);
+    setEditingMeta({ key: c.key, type: c.type });
+  };
+
+  const saveEdit = async () => {
+    if (!backend) { toast("บันทึกได้เมื่อเชื่อมฐานข้อมูลแล้ว"); return; }
+    setBusy(true);
+    try {
+      // เก็บเฉพาะฟิลด์ที่เปลี่ยนแปลงได้ — name(short/full), desc, subs, tools
+      const payload = {
+        short: editing.short, full: editing.full, desc: editing.desc,
+      };
+      if (editingMeta.type === "spec") {
+        payload.subs = editing.subs;
+        payload.tools = editing.tools;
+      }
+      await window.PfRubrics.save(editingMeta.key, payload);
+      toast("บันทึกรูบริกเรียบร้อย");
+      setEditing(null); setEditingMeta(null);
+      await load();
+    } catch (e) { toast("บันทึกไม่สำเร็จ: " + (e.message||e)); }
+    finally { setBusy(false); }
+  };
+
+  const resetToDefault = async () => {
+    if (!backend) return;
+    if (!confirm("กลับเป็นค่าเริ่มต้นของหลักสูตร? (การแก้ที่บันทึกไว้จะหาย)")) return;
+    setBusy(true);
+    try {
+      await window.PfRubrics.reset(editingMeta.key);
+      toast("กลับเป็นค่าเริ่มต้นแล้ว");
+      setEditing(null); setEditingMeta(null);
+      await load();
+    } catch (e) { toast("รีเซ็ตไม่สำเร็จ: " + (e.message||e)); }
+    finally { setBusy(false); }
+  };
+
+  const exportJson = () => {
+    const blob = new Blob([JSON.stringify(merged, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "pdshs-rubrics.json";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="page">
       <div className="row-between" style={{marginBottom:18}}>
         <div>
           <h2 className="mb-0" style={{fontSize:22}}>จัดการรูบริกสมรรถนะ</h2>
-          <div className="muted small">เพิ่ม/แก้ไขเกณฑ์การประเมินที่ใช้ทั่วทั้งระบบ</div>
+          <div className="muted small">10 สมรรถนะตามหลักสูตร — แก้ทับเฉพาะที่ต้องการได้</div>
         </div>
         <div className="row gap-2">
-          <button className="btn btn-ghost btn-sm" onClick={()=>toast("ส่งออก rubric (JSON)")}>ส่งออก</button>
-          <button className="btn btn-primary btn-sm" onClick={()=>toast("เปิดตัวแก้รูบริก")}><Icons.plus/> เพิ่มสมรรถนะ</button>
+          <button className="btn btn-ghost btn-sm" onClick={exportJson}>⬇ ส่งออก JSON</button>
         </div>
       </div>
       <div className="card" style={{padding:0, overflow:"hidden"}}>
         <table className="table">
-          <thead><tr><th>สมรรถนะ</th><th>ประเภท</th><th>จำนวนระดับ</th><th>แก้ไขล่าสุด</th><th></th></tr></thead>
+          <thead><tr><th>สมรรถนะ</th><th>ประเภท</th><th>จำนวนระดับ</th><th>สถานะ</th><th className="text-right">การจัดการ</th></tr></thead>
           <tbody>
-            {items.map((r,i)=>(
-              <tr key={i}>
-                <td><b>{r.name}</b></td>
-                <td>{r.type === "หลัก" ? <Pill kind="blue">สมรรถนะหลัก</Pill> : <Pill kind="pink">สมรรถนะเฉพาะ</Pill>}</td>
-                <td className="num">{r.levels}</td>
-                <td className="muted">{r.edit}</td>
-                <td className="text-right">
-                  <button className="btn btn-ghost btn-sm" onClick={()=>toast(`แก้ไข: ${r.name}`)}>แก้ไข</button>
-                </td>
-              </tr>
-            ))}
+            {merged.map(c => {
+              const ov = overrides[c.key];
+              return (
+                <tr key={c.key}>
+                  <td><b>{c.short}</b><div className="muted small">{c.full}</div></td>
+                  <td>{c.type === "core" ? <Pill kind="blue">สมรรถนะหลัก</Pill> : <Pill kind="pink">สมรรถนะเฉพาะ</Pill>}</td>
+                  <td className="num">{c.type === "spec" ? `${(c.subs||[]).length} หัวข้อย่อย × 5` : 5}</td>
+                  <td>{ov ? <span className="muted">แก้ไขล่าสุด {fmtAgo(ov.updated_at)}</span> : <span className="muted">ค่าเริ่มต้น</span>}</td>
+                  <td className="text-right">
+                    <button className="btn btn-ghost btn-sm" onClick={()=>startEdit(c)}>ดู / แก้ไข</button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
+
+      {editing && (
+        <Modal title={`รูบริก: ${editing.short}`} onClose={()=>{ setEditing(null); setEditingMeta(null); }} width={820}
+          footer={<>
+            {overrides[editingMeta.key] && (
+              <button className="btn btn-ghost" onClick={resetToDefault} disabled={busy} style={{marginRight:"auto",color:"#dc2626"}}>กลับค่าเริ่มต้น</button>
+            )}
+            <button className="btn btn-ghost" onClick={()=>{ setEditing(null); setEditingMeta(null); }}>ยกเลิก</button>
+            <button className="btn btn-primary" onClick={saveEdit} disabled={busy}>{busy?"กำลังบันทึก…":"บันทึก"}</button>
+          </>}>
+
+          <div className="row gap-3" style={{marginBottom:10}}>
+            {editingMeta.type === "core" ? <Pill kind="blue">สมรรถนะหลัก</Pill> : <Pill kind="pink">สมรรถนะเฉพาะวิชาเอก</Pill>}
+            <span className="muted small mono">{editingMeta.key}</span>
+          </div>
+
+          <div className="field">
+            <label>ชื่อย่อ (แสดงในตาราง/แท็ก)</label>
+            <input className="input" value={editing.short} onChange={e=>setEditing(s=>({...s, short:e.target.value}))}/>
+          </div>
+          <div className="field">
+            <label>ชื่อเต็ม</label>
+            <input className="input" value={editing.full} onChange={e=>setEditing(s=>({...s, full:e.target.value}))}/>
+          </div>
+          <div className="field">
+            <label>คำอธิบาย</label>
+            <textarea className="textarea" rows={3} value={editing.desc} onChange={e=>setEditing(s=>({...s, desc:e.target.value}))}/>
+          </div>
+
+          {editingMeta.type === "spec" && (
+            <>
+              <div className="divider-h"></div>
+              <h3>สมรรถนะย่อย ({(editing.subs||[]).length} หัวข้อ)</h3>
+              <div className="muted small" style={{marginTop:-6,marginBottom:10}}>แต่ละหัวข้อมีเกณฑ์พฤติกรรมบ่งชี้ 5 ระดับ (เริ่มต้น → เชี่ยวชาญ)</div>
+              {(editing.subs||[]).map((sub, si) => (
+                <div key={si} className="card card-tight" style={{padding:14,marginBottom:12,border:"1px solid var(--line)"}}>
+                  <div className="row gap-3" style={{alignItems:"center",marginBottom:10}}>
+                    <span className="mono muted small">{sub.key}</span>
+                    <input className="input" style={{flex:1}} value={sub.name}
+                      onChange={e=>setEditing(s=>{ const c={...s, subs:[...s.subs]}; c.subs[si]={...c.subs[si], name:e.target.value}; return c; })}/>
+                  </div>
+                  {(sub.levels||[]).map((lv, li) => (
+                    <div key={li} className="field" style={{marginBottom:8}}>
+                      <label style={{color: LEVEL_NAMES[li]?.color, fontWeight:600}}>ระดับ {li+1} — {LEVEL_NAMES[li]?.label}</label>
+                      <textarea className="textarea" rows={2} value={lv}
+                        onChange={e=>setEditing(s=>{
+                          const c={...s, subs:[...s.subs]};
+                          c.subs[si]={...c.subs[si], levels:[...c.subs[si].levels]};
+                          c.subs[si].levels[li]=e.target.value;
+                          return c;
+                        })}/>
+                    </div>
+                  ))}
+                </div>
+              ))}
+
+              <div className="divider-h"></div>
+              <h3>เครื่องมือ/ชิ้นงานสำหรับเก็บหลักฐาน</h3>
+              {(editing.tools||[]).map((tool, ti) => (
+                <div key={ti} className="row gap-2" style={{marginBottom:6}}>
+                  <input className="input" style={{flex:1}} value={tool}
+                    onChange={e=>setEditing(s=>{ const c={...s, tools:[...s.tools]}; c.tools[ti]=e.target.value; return c; })}/>
+                  <button className="btn btn-ghost btn-sm" onClick={()=>setEditing(s=>({...s, tools:s.tools.filter((_,i)=>i!==ti)}))}>ลบ</button>
+                </div>
+              ))}
+              <button className="btn btn-ghost btn-sm" onClick={()=>setEditing(s=>({...s, tools:[...(s.tools||[]),""]}))}>+ เพิ่มเครื่องมือ</button>
+            </>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }

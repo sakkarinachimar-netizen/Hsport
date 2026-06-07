@@ -86,3 +86,19 @@ CREATE TRIGGER trg_guard_role
 
 -- ── 5) ตรวจรายชื่อผู้ใช้ + บทบาทปัจจุบัน ──
 -- SELECT email, name, role, student_code, grade FROM public.users ORDER BY role, email;
+
+-- ── 6) ตาราง override สำหรับรูบริก (แอดมินแก้ทับค่าเริ่มต้นจาก data.jsx ได้) ──
+CREATE TABLE IF NOT EXISTS rubric_overrides (
+  key         TEXT PRIMARY KEY,        -- ตรงกับ CORE/SPEC_COMPETENCIES.key
+  data        JSONB NOT NULL,          -- เก็บ object รูบริกฉบับแก้แล้วทั้งก้อน
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE rubric_overrides ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "rubric_select" ON rubric_overrides;
+CREATE POLICY "rubric_select" ON rubric_overrides FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "rubric_manage" ON rubric_overrides;
+CREATE POLICY "rubric_manage" ON rubric_overrides FOR ALL
+  USING (current_user_role() = 'admin');

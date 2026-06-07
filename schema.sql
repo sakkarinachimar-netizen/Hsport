@@ -270,3 +270,17 @@ DROP TRIGGER IF EXISTS trg_guard_role ON public.users;
 CREATE TRIGGER trg_guard_role
   BEFORE UPDATE ON public.users
   FOR EACH ROW EXECUTE FUNCTION public.guard_role_change();
+
+-- ── Rubric overrides — แอดมินแก้รูบริกได้ ──
+CREATE TABLE IF NOT EXISTS rubric_overrides (
+  key         TEXT PRIMARY KEY,
+  data        JSONB NOT NULL,
+  updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE rubric_overrides ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "rubric_select" ON rubric_overrides;
+CREATE POLICY "rubric_select" ON rubric_overrides FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "rubric_manage" ON rubric_overrides;
+CREATE POLICY "rubric_manage" ON rubric_overrides FOR ALL
+  USING (current_user_role() = 'admin');

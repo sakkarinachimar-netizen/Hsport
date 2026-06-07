@@ -159,4 +159,39 @@ const PfInternship = {
   },
 };
 
-Object.assign(window, { PfUsers, PfEvidence, PfEvaluations, PfInternship });
+const PfRubrics = {
+  async list() {
+    if (!_pf()) return [];
+    const { data, error } = await _pf().from('rubric_overrides').select('*');
+    if (error) throw error;
+    return data || [];
+  },
+  async save(key, data) {
+    if (!_pf()) return null;
+    const { error } = await _pf().from('rubric_overrides').upsert({
+      key, data, updated_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+  },
+  async reset(key) {
+    if (!_pf()) return null;
+    const { error } = await _pf().from('rubric_overrides').delete().eq('key', key);
+    if (error) throw error;
+  },
+};
+
+// ดึง override จาก DB แล้ว merge ลง CORE/SPEC_COMPETENCIES ในที่
+// (เพื่อให้ทุกหน้าเห็นรูบริกฉบับที่แอดมินแก้)
+async function applyRubricOverrides() {
+  if (!window.PfRubrics) return;
+  try {
+    const rows = await window.PfRubrics.list();
+    if (!rows || !rows.length) return;
+    const map = {}; rows.forEach(r => { map[r.key] = r.data; });
+    const apply = (arr) => arr && arr.forEach(c => { if (map[c.key]) Object.assign(c, map[c.key]); });
+    apply(window.CORE_COMPETENCIES);
+    apply(window.SPEC_COMPETENCIES);
+  } catch (e) { /* ignore */ }
+}
+
+Object.assign(window, { PfUsers, PfEvidence, PfEvaluations, PfInternship, PfRubrics, applyRubricOverrides });
