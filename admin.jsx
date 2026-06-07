@@ -803,10 +803,6 @@ function AdminSettings({ toast, onLogout }) {
   const me = window.pfCurrentUser || {};
   const [cfg, setCfg] = React.useState({
     semester: "1/2567",
-    allowSelfRegister: false,
-    backupNightly: true,
-    emailNotify: true,
-    twoFA: false,
     schoolName: "โรงเรียนสาธิต มศว ปทุมวัน",
     primary: "#2f6bff",
   });
@@ -846,40 +842,12 @@ function AdminSettings({ toast, onLogout }) {
               ))}
             </div>
           </div>
-
-          <div className="divider-h"></div>
-          <h3>ความปลอดภัยและการแจ้งเตือน</h3>
-          <Toggle label="อนุญาตให้นักเรียนสมัครเอง" value={cfg.allowSelfRegister} onChange={v=>set("allowSelfRegister", v)}/>
-          <Toggle label="สำรองข้อมูลรายคืน" value={cfg.backupNightly} onChange={v=>set("backupNightly", v)}/>
-          <Toggle label="แจ้งเตือนทางอีเมล" value={cfg.emailNotify} onChange={v=>set("emailNotify", v)}/>
-          <Toggle label="บังคับยืนยันตัวตนสองชั้น (2FA)" value={cfg.twoFA} onChange={v=>set("twoFA", v)}/>
-
-          <button className="btn btn-primary btn-block mt-5" onClick={()=>toast("บันทึกการตั้งค่าเรียบร้อย")}>บันทึกการตั้งค่า</button>
         </div>
       </div>
     </div>
   );
 }
 
-function Toggle({ label, value, onChange }) {
-  return (
-    <div className="row-between" style={{padding:"8px 0"}}>
-      <span>{label}</span>
-      <button
-        onClick={()=>onChange(!value)}
-        style={{
-          width:44, height:24, borderRadius:999, border:0,
-          background: value ? "var(--primary)" : "var(--line-2)",
-          position:"relative", cursor:"pointer", transition:".15s"
-        }}>
-        <span style={{
-          position:"absolute", top:3, left: value ? 22 : 3, width:18, height:18,
-          borderRadius:"50%", background:"#fff", transition:".15s"
-        }}></span>
-      </button>
-    </div>
-  );
-}
 
 window.ADMIN_NAV = ADMIN_NAV;
 Object.assign(window, {
