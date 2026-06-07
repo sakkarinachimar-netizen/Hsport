@@ -135,6 +135,21 @@ function StudentPortfolio({ toast }) {
   const [loading, setLoading] = React.useState(backend);
   const [stat, setStat] = React.useState("all");
   const [open, setOpen] = React.useState(null);
+  const [confirmDel, setConfirmDel] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+
+  const doDelete = async () => {
+    if (!backend) { toast("ลบได้เมื่อเชื่อมฐานข้อมูลแล้ว"); return; }
+    setBusy(true);
+    try {
+      await window.PfEvidence.remove(confirmDel.id);
+      const title = confirmDel.title;
+      setConfirmDel(null);
+      toast(`ลบ "${title}" ออกจากแฟ้มแล้ว`);
+      await load();
+    } catch (e) { toast("ลบไม่สำเร็จ: " + (e.message || e)); }
+    finally { setBusy(false); }
+  };
 
   const load = React.useCallback(async () => {
     if (!backend) { setItems(PORTFOLIO); setLoading(false); return; }
@@ -188,7 +203,12 @@ function StudentPortfolio({ toast }) {
                 <span>{p.note}</span>
               </div>
             </div>
-            <button className="btn btn-primary btn-sm" onClick={()=>setOpen(p)}>ดูรายละเอียด</button>
+            <div style={{display:"flex", flexDirection:"column", gap:8}}>
+              <button className="btn btn-primary btn-sm" onClick={()=>setOpen(p)}>ดูรายละเอียด</button>
+              {backend && (
+                <button className="btn btn-ghost btn-sm" onClick={()=>setConfirmDel(p)} style={{color:"#dc2626"}}>ลบ</button>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -223,6 +243,22 @@ function StudentPortfolio({ toast }) {
           <div className="divider-h"></div>
           <div className="small muted">ความเห็นจากอาจารย์</div>
           <div style={{marginTop:6}}>{open.note}</div>
+        </Modal>
+      )}
+
+      {confirmDel && (
+        <Modal title="ยืนยันการลบหลักฐาน" onClose={()=>setConfirmDel(null)}
+          footer={<>
+            <button className="btn btn-ghost" onClick={()=>setConfirmDel(null)}>ยกเลิก</button>
+            <button className="btn btn-danger" onClick={doDelete} disabled={busy}>{busy?"กำลังลบ…":"ลบหลักฐาน"}</button>
+          </>}>
+          <div>ลบ <b>"{confirmDel.title}"</b> ออกจากแฟ้มสะสมผลงาน?</div>
+          <div className="muted small mt-3" style={{lineHeight:1.7}}>
+            • ลิงก์หลักฐานทั้งหมดจะถูกลบ<br/>
+            • หากอาจารย์เคยให้คะแนน/ความเห็นไว้ — จะถูกลบตาม<br/>
+            • <b>การลบไม่สามารถยกเลิกได้</b><br/>
+            • หากต้องการแก้ไข ให้ลบอันนี้แล้วกดอัปโหลดใหม่
+          </div>
         </Modal>
       )}
     </div>

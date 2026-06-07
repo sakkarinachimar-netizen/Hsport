@@ -102,6 +102,12 @@ const PfEvidence = {
     const { error } = await _pf().from('evidence_items').update({ status }).eq('id', id);
     if (error) throw error;
   },
+  // ลบหลักฐานของตัวเอง (CASCADE จะลบ drive_links + evaluations ตาม)
+  async remove(id) {
+    if (!_pf()) return null;
+    const { error } = await _pf().from('evidence_items').delete().eq('id', id);
+    if (error) throw error;
+  },
 };
 
 const PfEvaluations = {
