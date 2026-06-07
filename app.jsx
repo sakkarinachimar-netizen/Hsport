@@ -252,6 +252,7 @@ function App() {
     if      (page === "t-home")     view = <TeacherHome go={setPage}/>;
     else if (page === "t-review")   view = <TeacherReview toast={toastMsg}/>;
     else if (page === "t-students") view = <TeacherStudents toast={toastMsg}/>;
+    else if (page === "t-rubrics")  view = <StudentRubrics/>;
     else if (page === "t-internship") view = <TeacherInternship toast={toastMsg}/>;
     else if (page === "t-history")  view = <TeacherHistory/>;
     else if (page === "t-announce") view = <TeacherAnnounce toast={toastMsg}/>;

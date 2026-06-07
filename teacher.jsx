@@ -4,6 +4,7 @@ const TEACHER_NAV = [
   { key: "t-home",    label: "หน้าแรก" },
   { key: "t-review",  label: "รายการที่ต้องตรวจ" },
   { key: "t-students",label: "นักเรียนในที่ปรึกษา" },
+  { key: "t-rubrics", label: "รูบริกสมรรถนะ" },
   { key: "t-internship", label: "ฝึกงาน" },
   { key: "t-history", label: "ประวัติการประเมิน" },
   { key: "t-announce",label: "ประกาศ/นัดหมาย" },
