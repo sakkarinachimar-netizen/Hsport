@@ -404,6 +404,15 @@ function AdminInternship({ toast }) {
     } catch (e) { toast("ลบไม่สำเร็จ: " + (e.message||e)); }
   };
 
+  const setAppStatus = async (id, status) => {
+    if (!backend) { toast("เชื่อม DB ก่อน"); return; }
+    try {
+      await window.PfInternship.setStatus(id, status);
+      toast(status === "approved" ? "อนุมัติคำขอแล้ว" : status === "rejected" ? "ปฏิเสธคำขอแล้ว" : "คืนสถานะเป็น 'รออนุมัติ' แล้ว");
+      await loadSites();
+    } catch (e) { toast("อัปเดตไม่สำเร็จ: " + (e.message||e)); }
+  };
+
   const toggleSite = async (id) => {
     const site = sites.find(s => s.id === id);
     if (!site) return;
@@ -484,10 +493,10 @@ function AdminInternship({ toast }) {
       {tab === "apps" && (
         <div className="card" style={{padding:0, overflow:"hidden"}}>
           <table className="table">
-            <thead><tr><th>นักเรียน</th><th>สถานที่</th><th>ช่วงเวลา</th><th>วันสมัคร</th><th>สถานะ</th><th>การประเมิน</th></tr></thead>
+            <thead><tr><th>นักเรียน</th><th>สถานที่</th><th>ช่วงเวลา</th><th>วันสมัคร</th><th>สถานะ</th><th>การประเมิน</th><th className="text-right">การจัดการ</th></tr></thead>
             <tbody>
               {apps.length === 0 ? (
-                <tr><td colSpan={6} className="muted" style={{padding:30,textAlign:"center"}}>ยังไม่มีคำขอจากนักเรียน</td></tr>
+                <tr><td colSpan={7} className="muted" style={{padding:30,textAlign:"center"}}>ยังไม่มีคำขอจากนักเรียน</td></tr>
               ) : apps.map(a => {
                 const s = sites.find(x => x.id === a.site_id);
                 return (
@@ -509,6 +518,16 @@ function AdminInternship({ toast }) {
                       {a.evaluated ? <Pill kind="blue">คะแนน {a.score}/5</Pill> :
                        a.reflection_done ? <Pill kind="purple">รอประเมิน</Pill> :
                        <span className="muted">—</span>}
+                    </td>
+                    <td className="text-right">
+                      {a.status === "pending" ? (
+                        <div className="row gap-2" style={{justifyContent:"flex-end"}}>
+                          <button className="btn btn-teal btn-sm" onClick={()=>setAppStatus(a.id, "approved")}>อนุมัติ</button>
+                          <button className="btn btn-ghost btn-sm" onClick={()=>setAppStatus(a.id, "rejected")} style={{color:"#dc2626"}}>ปฏิเสธ</button>
+                        </div>
+                      ) : (
+                        <button className="btn btn-ghost btn-sm" onClick={()=>setAppStatus(a.id, "pending")}>คืนสถานะ</button>
+                      )}
                     </td>
                   </tr>
                 );
