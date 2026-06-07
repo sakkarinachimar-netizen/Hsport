@@ -41,6 +41,7 @@ const ACTIVITIES = [];
 function StudentHome({ go, toast }) {
   const [levels, setLevels] = React.useState({});
   const [gradeAvg, setGradeAvg] = React.useState({});
+  const [englishLatest, setEnglishLatest] = React.useState({}); // { type → {score, date} ล่าสุด }
   React.useEffect(() => {
     if (!window.pfCurrentUser) return;
     let alive = true;
@@ -50,6 +51,20 @@ function StudentHome({ go, toast }) {
     if (window.PfGrades) {
       window.PfGrades.listByStudent(window.pfCurrentUser.id).then(rows => {
         if (alive) setGradeAvg(window.PfGrades.averagesBySubject(rows));
+      }).catch(()=>{});
+    }
+    if (window.PfEnglishExams) {
+      window.PfEnglishExams.listByStudent(window.pfCurrentUser.id).then(rows => {
+        if (!alive) return;
+        // หา score ล่าสุด (ตามวันสอบ) ของแต่ละประเภท
+        const m = {};
+        (rows||[]).forEach(r => {
+          const cur = m[r.exam_type];
+          if (!cur || (r.exam_date && (!cur.exam_date || r.exam_date > cur.exam_date))) {
+            m[r.exam_type] = r;
+          }
+        });
+        setEnglishLatest(m);
       }).catch(()=>{});
     }
     return () => { alive = false; };
@@ -120,6 +135,32 @@ function StudentHome({ go, toast }) {
                     <div className="lbl" style={{fontSize:11}}>{s.label}</div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {window.PfEnglishExams && (
+            <div className="card mt-4">
+              <div className="row-between" style={{marginBottom:6}}>
+                <h2 style={{margin:0}}>🎓 คะแนนสอบภาษาอังกฤษ</h2>
+                <button className="btn btn-ghost btn-sm" onClick={()=>go("profile")}>แก้ไข →</button>
+              </div>
+              <div className="muted small" style={{marginBottom:10}}>คะแนนล่าสุดของแต่ละประเภท</div>
+              <div className="stat-grid" style={{gridTemplateColumns:"repeat(3,1fr)"}}>
+                {(window.ENGLISH_EXAM_TYPES || []).map(t => {
+                  const r = englishLatest[t.key];
+                  return (
+                    <div key={t.key} className="stat stat-purple" style={{padding:"12px"}}>
+                      <div className="num" style={{fontSize:18}}>
+                        {r && r.score != null ? <>{Number(r.score)}<span className="muted small" style={{fontSize:11}}> / {t.max}</span></> : "—"}
+                      </div>
+                      <div className="lbl" style={{fontSize:12}}>{t.label}</div>
+                      {r && r.exam_date && (
+                        <div className="mono muted" style={{fontSize:10, marginTop:4}}>📅 {r.exam_date}</div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
