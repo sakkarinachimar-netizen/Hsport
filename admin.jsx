@@ -180,6 +180,9 @@ function AdminUsers({ toast }) {
   const [importing, setImporting] = React.useState(false);
   const fileRef = React.useRef(null);
   const [form, setForm] = React.useState({ email:"", password:"", name:"", role:"student", studentCode:"", grade:"" });
+  const [openEdit, setOpenEdit] = React.useState(null);
+  const [editForm, setEditForm] = React.useState({ name:"", code:"", grade:"" });
+  const [confirmDel, setConfirmDel] = React.useState(null);
 
   // normalize → { id, code, name, email, role(key), grade }
   const norm = React.useCallback((rows, isDb) => rows.map(u => isDb
@@ -231,6 +234,39 @@ function AdminUsers({ toast }) {
     } catch (e2) {
       toast(e2?.message?.includes("registered") ? "อีเมลนี้ถูกใช้แล้ว" : ("สร้างไม่สำเร็จ: " + (e2.message||e2)));
     } finally { setBusy(false); }
+  };
+
+  const startEdit = (u) => {
+    setEditForm({ name: u.name || "", code: u.code || "", grade: u.grade || "" });
+    setOpenEdit(u);
+  };
+  const saveEdit = async () => {
+    if (!backend) { toast("แก้ไขได้เมื่อเชื่อมฐานข้อมูลแล้ว"); return; }
+    if (!editForm.name.trim()) { toast("ชื่อห้ามว่าง"); return; }
+    setBusy(true);
+    try {
+      await window.PfUsers.update(openEdit.id, {
+        name: editForm.name.trim(),
+        student_code: editForm.code.trim() || null,
+        grade: editForm.grade.trim() || null,
+      });
+      setOpenEdit(null);
+      toast("บันทึกข้อมูลผู้ใช้เรียบร้อย");
+      await load();
+    } catch (e) { toast("แก้ไขไม่สำเร็จ: " + (e.message || e)); }
+    finally { setBusy(false); }
+  };
+  const doDelete = async () => {
+    if (!backend) { toast("ลบได้เมื่อเชื่อมฐานข้อมูลแล้ว"); return; }
+    setBusy(true);
+    try {
+      await window.PfUsers.remove(confirmDel.id);
+      const removedName = confirmDel.name;
+      setConfirmDel(null);
+      toast(`ลบ "${removedName}" ออกจากระบบแล้ว`);
+      await load();
+    } catch (e) { toast("ลบไม่สำเร็จ: " + (e.message || e)); }
+    finally { setBusy(false); }
   };
 
   const downloadTemplate = () => {
@@ -310,28 +346,39 @@ function AdminUsers({ toast }) {
 
       <div className="card" style={{padding:0, overflow:"hidden"}}>
         <table className="table">
-          <thead><tr><th>รหัส</th><th>ชื่อ-นามสกุล</th><th>อีเมล</th><th>ชั้น/สังกัด</th><th>บทบาท</th></tr></thead>
+          <thead><tr><th>รหัส</th><th>ชื่อ-นามสกุล</th><th>อีเมล</th><th>ชั้น/สังกัด</th><th>บทบาท</th><th className="text-right">การจัดการ</th></tr></thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="muted" style={{padding:20,textAlign:"center"}}>กำลังโหลด…</td></tr>
+              <tr><td colSpan={6} className="muted" style={{padding:20,textAlign:"center"}}>กำลังโหลด…</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={5} className="muted" style={{padding:20,textAlign:"center"}}>ไม่พบผู้ใช้</td></tr>
-            ) : filtered.map(u => (
+              <tr><td colSpan={6} className="muted" style={{padding:20,textAlign:"center"}}>ไม่พบผู้ใช้</td></tr>
+            ) : filtered.map(u => {
+              const isMe = window.pfCurrentUser && u.id === window.pfCurrentUser.id;
+              return (
               <tr key={u.id}>
                 <td className="mono">{u.code || "—"}</td>
                 <td><b>{u.name}</b></td>
                 <td className="muted">{u.email}</td>
                 <td>{u.grade || "—"}</td>
                 <td>
-                  <select className="select" value={u.role} disabled={!backend}
+                  <select className="select" value={u.role} disabled={!backend || isMe}
+                    title={isMe ? "เปลี่ยน role ของตัวเองไม่ได้" : ""}
                     onChange={e=>changeRole(u.id, e.target.value)} style={{minWidth:130}}>
                     <option value="student">นักเรียน</option>
                     <option value="teacher">อาจารย์</option>
                     <option value="admin">ผู้ดูแลระบบ</option>
                   </select>
                 </td>
+                <td className="text-right">
+                  <div className="row gap-2" style={{justifyContent:"flex-end"}}>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>startEdit(u)} disabled={!backend}>แก้ไข</button>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>setConfirmDel(u)}
+                      disabled={!backend || isMe} title={isMe ? "ลบตัวเองไม่ได้" : ""}
+                      style={{color: isMe ? undefined : "#dc2626"}}>ลบ</button>
+                  </div>
+                </td>
               </tr>
-            ))}
+            );})}
           </tbody>
         </table>
       </div>
@@ -361,6 +408,39 @@ function AdminUsers({ toast }) {
               <input className="input mono" value={form.studentCode} onChange={e=>setForm(f=>({...f, studentCode:e.target.value}))} placeholder="เช่น 65001234"/></div>
           )}
           <div className="muted small">ผู้ใช้จะล็อกอินด้วยอีเมล+รหัสผ่านนี้ทันที (ปิดยืนยันอีเมลแล้ว)</div>
+        </Modal>
+      )}
+
+      {openEdit && (
+        <Modal title={`แก้ไขข้อมูล: ${openEdit.email}`} onClose={()=>setOpenEdit(null)}
+          footer={<>
+            <button className="btn btn-ghost" onClick={()=>setOpenEdit(null)}>ยกเลิก</button>
+            <button className="btn btn-primary" onClick={saveEdit} disabled={busy}>{busy?"กำลังบันทึก…":"บันทึก"}</button>
+          </>}>
+          <div className="field"><label>ชื่อ-นามสกุล</label>
+            <input className="input" value={editForm.name} onChange={e=>setEditForm(f=>({...f, name:e.target.value}))}/></div>
+          <div className="row gap-4">
+            <div className="field" style={{flex:1}}><label>รหัสนักเรียน</label>
+              <input className="input mono" value={editForm.code} onChange={e=>setEditForm(f=>({...f, code:e.target.value}))} placeholder="เช่น 65001234"/></div>
+            <div className="field" style={{flex:1}}><label>ชั้น/สังกัด</label>
+              <input className="input" value={editForm.grade} onChange={e=>setEditForm(f=>({...f, grade:e.target.value}))} placeholder="เช่น ม.5/2"/></div>
+          </div>
+          <div className="muted small">เปลี่ยน <b>บทบาท</b> ทำได้ตรงๆ จาก dropdown ในตาราง — เปลี่ยน <b>อีเมล/รหัสผ่าน</b> ต้องทำใน Supabase Dashboard</div>
+        </Modal>
+      )}
+
+      {confirmDel && (
+        <Modal title="ยืนยันการลบผู้ใช้" onClose={()=>setConfirmDel(null)}
+          footer={<>
+            <button className="btn btn-ghost" onClick={()=>setConfirmDel(null)}>ยกเลิก</button>
+            <button className="btn btn-danger" onClick={doDelete} disabled={busy}>{busy?"กำลังลบ…":"ลบผู้ใช้"}</button>
+          </>}>
+          <div>ลบ <b>{confirmDel.name}</b> ({confirmDel.email}) ออกจากระบบ?</div>
+          <div className="muted small mt-3" style={{lineHeight:1.7}}>
+            • ผู้ใช้จะเข้าระบบไม่ได้อีก<br/>
+            • <b>หลักฐาน/การประเมิน</b>ที่ผู้ใช้สร้างไว้จะถูกลบตาม (CASCADE)<br/>
+            • หากต้องการลบ auth account ด้วย (รีเซ็ตอีเมลเพื่อเอากลับมาใช้ใหม่ได้) ต้องลบใน Supabase Dashboard → Authentication → Users
+          </div>
         </Modal>
       )}
     </div>

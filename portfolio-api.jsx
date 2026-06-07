@@ -15,6 +15,19 @@ const PfUsers = {
     const { error } = await _pf().from('users').update({ role }).eq('id', id);
     if (error) throw error;
   },
+  // แก้ไขข้อมูลผู้ใช้ (name, student_code, grade ฯลฯ)
+  async update(id, fields) {
+    if (!_pf()) return null;
+    const { error } = await _pf().from('users').update(fields).eq('id', id);
+    if (error) throw error;
+  },
+  // ลบแถวใน public.users (ระงับสิทธิ์เข้าใช้ระบบ)
+  // หมายเหตุ: auth.users ยังคงอยู่ — ต้องลบจาก Supabase Dashboard ถ้าต้องการลบทั้งหมด
+  async remove(id) {
+    if (!_pf()) return null;
+    const { error } = await _pf().from('users').delete().eq('id', id);
+    if (error) throw error;
+  },
   // สร้างผู้ใช้ใหม่ — ใช้ client ชั่วคราว เพื่อไม่ให้ session ของแอดมินถูกแทนที่
   async createUser({ email, password, name, role, studentCode, grade }) {
     if (!window.PF_SUPABASE_READY) return null;
