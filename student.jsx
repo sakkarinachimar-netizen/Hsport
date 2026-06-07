@@ -39,6 +39,17 @@ const PORTFOLIO = [];
 const ACTIVITIES = [];
 /* ---------- Home ---------- */
 function StudentHome({ go, toast }) {
+  const [levels, setLevels] = React.useState({});
+  React.useEffect(() => {
+    if (!window.computeMyLevels || !window.pfCurrentUser) return;
+    let alive = true;
+    window.computeMyLevels(window.pfCurrentUser.id).then(l => { if (alive) setLevels(l); });
+    return () => { alive = false; };
+  }, []);
+  const radarValues = [
+    ...CORE_COMPETENCIES.map(c => levels[c.key] || 0),
+    ...SPEC_COMPETENCIES.map(c => levels[c.key] || 0),
+  ];
   return (
     <div className="page">
       <div className="hero">
@@ -54,26 +65,32 @@ function StudentHome({ go, toast }) {
         <div className="card">
           <h2>สรุประดับสมรรถนะของฉัน</h2>
           <div className="muted small" style={{margin:"-6px 0 10px"}}>สมรรถนะหลัก (Core Competencies)</div>
-          {CORE_COMPETENCIES.map(c => (
-            <div className="comp-row" key={c.key}>
-              <div className="lbl"><span>{c.short}</span><span className="muted">{MY_LEVELS[c.key] > 0 ? `${LEVEL_NAMES[MY_LEVELS[c.key]-1].label} (${MY_LEVELS[c.key]}/5)` : "ยังไม่ประเมิน"}</span></div>
-              <ProgressBar value={MY_LEVELS[c.key]} max={5}/>
-            </div>
-          ))}
+          {CORE_COMPETENCIES.map(c => {
+            const lvl = levels[c.key] || 0;
+            return (
+              <div className="comp-row" key={c.key}>
+                <div className="lbl"><span>{c.short}</span><span className="muted">{lvl > 0 ? `${LEVEL_NAMES[lvl-1].label} (${lvl}/5)` : "ยังไม่ประเมิน"}</span></div>
+                <ProgressBar value={lvl} max={5}/>
+              </div>
+            );
+          })}
           <div className="muted small mt-5" style={{marginBottom:6}}>สมรรถนะเฉพาะวิชาเอก (Professional)</div>
-          {SPEC_COMPETENCIES.map(c => (
-            <div className="comp-row" key={c.key}>
-              <div className="lbl"><span>{c.short}</span><span className="muted">{MY_LEVELS[c.key] > 0 ? `${LEVEL_NAMES[MY_LEVELS[c.key]-1].label} (${MY_LEVELS[c.key]}/5)` : "ยังไม่ประเมิน"}</span></div>
-              <ProgressBar value={MY_LEVELS[c.key]} max={5}/>
-            </div>
-          ))}
+          {SPEC_COMPETENCIES.map(c => {
+            const lvl = levels[c.key] || 0;
+            return (
+              <div className="comp-row" key={c.key}>
+                <div className="lbl"><span>{c.short}</span><span className="muted">{lvl > 0 ? `${LEVEL_NAMES[lvl-1].label} (${lvl}/5)` : "ยังไม่ประเมิน"}</span></div>
+                <ProgressBar value={lvl} max={5}/>
+              </div>
+            );
+          })}
         </div>
 
         <div>
           <div className="card">
             <h2>ภาพรวมสมรรถนะ</h2>
             <div className="radar-wrap">
-              <RadarChart labels={RADAR_LABELS} values={RADAR_VALUES} max={5} size={380}/>
+              <RadarChart labels={RADAR_LABELS} values={radarValues} max={5} size={380}/>
             </div>
           </div>
 

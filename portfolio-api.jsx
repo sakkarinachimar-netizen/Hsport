@@ -201,6 +201,35 @@ const PfRubrics = {
   },
 };
 
+// คำนวณระดับสมรรถนะของนักเรียนจาก evaluations ใน DB
+// คืน { key → ระดับเฉลี่ย 1-5, ปัดเศษ }
+async function computeMyLevels(studentId) {
+  if (!window.PfEvidence) return {};
+  let rows;
+  try { rows = await window.PfEvidence.listMine(studentId); }
+  catch (e) { return {}; }
+  const fullToKey = {};
+  [...(window.CORE_COMPETENCIES||[]), ...(window.SPEC_COMPETENCIES||[])]
+    .forEach(c => { fullToKey[c.full] = c.key; });
+  const buckets = {};
+  (rows || []).forEach(ev => {
+    const comps = [...(ev.core_competencies||[]), ...(ev.spec_competencies||[])];
+    const evals = (ev.evaluations || []).map(e => e.score).filter(s => s != null);
+    if (!evals.length) return;
+    const avg = evals.reduce((a,b)=>a+b,0) / evals.length;
+    comps.forEach(full => {
+      const key = fullToKey[full];
+      if (!key) return;
+      (buckets[key] = buckets[key] || []).push(avg);
+    });
+  });
+  const out = {};
+  Object.entries(buckets).forEach(([k, arr]) => {
+    out[k] = Math.round(arr.reduce((a,b)=>a+b,0) / arr.length);
+  });
+  return out;
+}
+
 // ดึง override จาก DB แล้ว merge ลง CORE/SPEC_COMPETENCIES ในที่
 // (เพื่อให้ทุกหน้าเห็นรูบริกฉบับที่แอดมินแก้)
 async function applyRubricOverrides() {
@@ -215,4 +244,4 @@ async function applyRubricOverrides() {
   } catch (e) { /* ignore */ }
 }
 
-Object.assign(window, { PfUsers, PfEvidence, PfEvaluations, PfInternship, PfRubrics, applyRubricOverrides });
+Object.assign(window, { PfUsers, PfEvidence, PfEvaluations, PfInternship, PfRubrics, applyRubricOverrides, computeMyLevels });

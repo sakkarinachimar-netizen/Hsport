@@ -5,69 +5,111 @@ const INTERNSHIP_SITES = [];
 const INTERNSHIP_PERIODS = [];
 const INTERNSHIP_TAG_COLORS = { hospital:"red", lab:"blue", gov:"purple" };
 const INTERNSHIP_TAG_LABELS = { hospital:"โรงพยาบาล", lab:"ห้องปฏิบัติการ", gov:"หน่วยงานรัฐ" };
-
-/* Mock current applications (shared across views) */
 const initialApps = [];
+
+// DB row → display shape
+function mapSiteRow(r) {
+  return {
+    id: r.id, name: r.name, dept: r.dept || "", area: r.area || "",
+    field: r.field || "", cap: r.cap || 0, taken: r.taken || 0,
+    desc: r.descr || "", skills: r.skills || [], tag: r.tag || "hospital",
+    status: r.status || "open",
+    startDate: r.start_date || "", endDate: r.end_date || "",
+    hoursPerDay: r.hours_per_day != null ? r.hours_per_day : null,
+  };
+}
+function appStatusLabel(s) {
+  if (s === "approved") return { kind:"green", label:"✓ ได้รับอนุมัติ" };
+  if (s === "rejected") return { kind:"red",   label:"✖ ไม่อนุมัติ" };
+  return { kind:"amber", label:"⌛ รออนุมัติ" };
+}
+
 /* ---------- Student: Internship ---------- */
 function StudentInternship({ toast }) {
+  const backend = !!(window.PfInternship && window.PF_SUPABASE_READY && window.pfCurrentUser);
   const [tab, setTab] = React.useState("browse");
-  const [periodId, setPeriodId] = React.useState("p1");
   const [field, setField] = React.useState("all");
+  const [sites, setSites] = React.useState([]);
+  const [myApp, setMyApp] = React.useState(null);
+  const [loading, setLoading] = React.useState(backend);
+  const [busy, setBusy] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    if (!backend) { setSites([]); setMyApp(null); setLoading(false); return; }
+    setLoading(true);
+    try {
+      const [siteRows, allApps] = await Promise.all([
+        window.PfInternship.sites(),
+        window.PfInternship.applications(),
+      ]);
+      setSites((siteRows || []).map(mapSiteRow));
+      const mine = (allApps || []).find(a => a.student_id === window.pfCurrentUser.id);
+      setMyApp(mine || null);
+    } catch (e) { toast("โหลดข้อมูลฝึกงานไม่สำเร็จ: " + (e.message||e)); }
+    finally { setLoading(false); }
+  }, [backend, toast]);
+  React.useEffect(() => { load(); }, [load]);
+
+  const filteredSites = sites.filter(s => field === "all" || s.field === field);
+
   const [open, setOpen] = React.useState(null);
 
-  // My application (mock: student 65001234 has no app yet, can apply)
-  const [myApp, setMyApp] = React.useState(null);
-
-  const period = INTERNSHIP_PERIODS.find(p => p.id === periodId);
-  const sites = INTERNSHIP_SITES.filter(s =>
-    (field === "all" || s.field === field)
-  );
-
-  const apply = (site) => {
+  const apply = async (site) => {
     if (site.status === "full") { toast("ที่นั่งเต็มแล้ว"); return; }
-    setMyApp({
-      siteId: site.id, periodId,
-      status: "pending", appliedAt: new Date().toLocaleDateString("th-TH"),
-    });
-    setOpen(null);
-    setTab("status");
-    toast("ส่งคำขอฝึกงานเรียบร้อย รออาจารย์ที่ปรึกษาอนุมัติ");
+    if (!backend) { toast("สมัครได้เมื่อเชื่อมฐานข้อมูลแล้ว"); return; }
+    setBusy(true);
+    try {
+      await window.PfInternship.apply({
+        studentId: window.pfCurrentUser.id,
+        studentName: window.pfCurrentUser.name,
+        siteId: site.id,
+        periodId: null,
+      });
+      toast("ส่งคำขอฝึกงานเรียบร้อย รออาจารย์อนุมัติ");
+      setOpen(null);
+      setTab("status");
+      await load();
+    } catch (e) { toast("สมัครไม่สำเร็จ: " + (e.message||e)); }
+    finally { setBusy(false); }
   };
-  const cancel = () => { setMyApp(null); toast("ยกเลิกคำขอแล้ว"); };
+
+  const myAppStatus = myApp ? appStatusLabel(myApp.status) : null;
+  const mySite = myApp ? sites.find(s => s.id === myApp.site_id) : null;
 
   return (
     <div className="page">
       <div className="row-between" style={{marginBottom:6}}>
         <h2 className="mb-0" style={{fontSize:22}}>ฝึกงานในสายวิทยาศาสตร์สุขภาพ</h2>
-        {myApp && <Pill kind={myApp.status === "approved" ? "green" : myApp.status === "rejected" ? "red" : "amber"}>
-          {myApp.status === "approved" ? "✓ ได้รับอนุมัติ" : myApp.status === "rejected" ? "✖ ไม่อนุมัติ" : "⌛ รออนุมัติ"}
-        </Pill>}
+        {myAppStatus && <Pill kind={myAppStatus.kind}>{myAppStatus.label}</Pill>}
       </div>
-      <div className="muted small">เลือกสถานที่ฝึกประสบการณ์จริงที่หลักสูตรประสานไว้ พร้อมประเมินสมรรถนะหลังฝึก</div>
+      <div className="muted small">เลือกสถานที่ฝึกประสบการณ์ พร้อมประเมินสมรรถนะหลังฝึก</div>
 
       <div className="tabs mt-4">
         <button className={tab==="browse"?"active":""} onClick={()=>setTab("browse")}>ค้นหาสถานที่</button>
         <button className={tab==="status"?"active":""} onClick={()=>setTab("status")}>คำขอของฉัน</button>
-        <button className={tab==="periods"?"active":""} onClick={()=>setTab("periods")}>ช่วงเวลาฝึกงาน</button>
       </div>
 
       {tab === "browse" && (
         <>
           <div className="filterbar mb-0" style={{marginBottom:14}}>
-            <select className="select" value={periodId} onChange={e=>setPeriodId(e.target.value)}>
-              {INTERNSHIP_PERIODS.filter(p=>p.open).map(p => <option key={p.id} value={p.id}>{p.label} • {p.weeks} สัปดาห์ • {p.timeStart}–{p.timeEnd} น.</option>)}
-            </select>
             <select className="select" value={field} onChange={e=>setField(e.target.value)}>
               <option value="all">ทุกสายงาน</option>
               <option>การแพทย์</option><option>เภสัชกรรม</option><option>ห้องปฏิบัติการ</option><option>สาธารณสุข</option>
             </select>
             <div className="spacer"></div>
-            <span className="muted small">พบ {sites.length} สถานที่</span>
+            <span className="muted small">พบ {filteredSites.length} สถานที่</span>
           </div>
 
+          {loading ? (
+            <div className="card muted" style={{padding:30,textAlign:"center"}}>กำลังโหลด…</div>
+          ) : filteredSites.length === 0 ? (
+            <div className="card" style={{textAlign:"center", padding:50}}>
+              <div className="muted">ยังไม่มีสถานที่ฝึกงานในระบบ — ติดต่อแอดมิน</div>
+            </div>
+          ) : (
           <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(340px, 1fr))", gap:14}}>
-            {sites.map(s => {
-              const isMine = myApp && myApp.siteId === s.id;
+            {filteredSites.map(s => {
+              const isMine = myApp && myApp.site_id === s.id;
               return (
                 <div key={s.id} className="card" style={{padding:18, display:"flex", flexDirection:"column"}}>
                   <div className="row-between" style={{gap:8, alignItems:"flex-start"}}>
@@ -76,78 +118,70 @@ function StudentInternship({ toast }) {
                   </div>
                   <h3 style={{margin:"10px 0 4px", fontSize:16}}>{s.name}</h3>
                   <div className="muted small">{s.dept}</div>
-                  <p className="small" style={{margin:"10px 0"}}>{s.desc}</p>
-                  <div className="row gap-2" style={{flexWrap:"wrap", marginBottom:10}}>
-                    {s.skills.map((sk,i)=> <Pill key={i} kind="gray">{sk}</Pill>)}
-                  </div>
+                  {s.desc && <p className="small" style={{margin:"10px 0"}}>{s.desc}</p>}
+                  {(s.startDate || s.endDate || s.hoursPerDay) && (
+                    <div className="small mono" style={{margin:"4px 0 10px", color:"var(--ink-3)"}}>
+                      📅 {s.startDate || "—"} → {s.endDate || "—"}
+                      {s.hoursPerDay ? ` • ${s.hoursPerDay} ชม./วัน` : ""}
+                    </div>
+                  )}
+                  {s.skills.length > 0 && (
+                    <div className="row gap-2" style={{flexWrap:"wrap", marginBottom:10}}>
+                      {s.skills.map((sk,i)=> <Pill key={i} kind="gray">{sk}</Pill>)}
+                    </div>
+                  )}
                   <div className="row-between mt-2">
                     <div className="small">
                       <span className="muted">ที่นั่ง </span>
                       <b className="mono">{s.cap - s.taken}/{s.cap}</b>
                     </div>
-                    {s.status === "full"
+                    {s.status === "full" || s.taken >= s.cap
                       ? <Pill kind="red">เต็ม</Pill>
                       : isMine
-                        ? <Pill kind="green">เลือกแล้ว</Pill>
-                        : <button className="btn btn-primary btn-sm" onClick={()=>setOpen(s)} disabled={!!myApp}>
-                            {myApp ? "เลือกแล้ว (อื่น)" : "เลือกสมัคร"}
+                        ? <Pill kind="green">สมัครแล้ว</Pill>
+                        : <button className="btn btn-primary btn-sm" onClick={()=>setOpen(s)} disabled={!!myApp || busy}>
+                            {myApp ? "สมัครแล้ว (อื่น)" : "เลือกสมัคร"}
                           </button>}
                   </div>
                 </div>
               );
             })}
           </div>
+          )}
         </>
       )}
 
       {tab === "status" && (
-        myApp ? (
-          (() => {
-            const site = INTERNSHIP_SITES.find(s => s.id === myApp.siteId);
-            const pd = INTERNSHIP_PERIODS.find(p => p.id === myApp.periodId);
-            return (
-              <div className="card" style={{padding:24}}>
-                <div className="row-between" style={{flexWrap:"wrap", gap:8}}>
-                  <div>
-                    <h3 style={{marginBottom:4}}>{site.name}</h3>
-                    <div className="muted small">{site.dept} • 📍 {site.area}</div>
-                  </div>
-                  <Pill kind={myApp.status === "approved" ? "green" : myApp.status === "rejected" ? "red" : "amber"}>
-                    {myApp.status === "approved" ? "✓ ได้รับอนุมัติ" : myApp.status === "rejected" ? "✖ ไม่อนุมัติ" : "⌛ รออนุมัติจากอาจารย์ที่ปรึกษา"}
-                  </Pill>
-                </div>
-                <div className="divider-h"></div>
-                <div className="row gap-4" style={{flexWrap:"wrap"}}>
-                  <div>
-                    <div className="small muted">ช่วงเวลา</div>
-                    <div><b>{pd.label}</b></div>
-                    <div className="small mono muted">{pd.start} – {pd.end} ({pd.weeks} สัปดาห์)</div>
-                  </div>
-                  <div>
-                    <div className="small muted">เวลาปฏิบัติงาน</div>
-                    <div><b className="mono">{pd.timeStart}–{pd.timeEnd} น.</b></div>
-                    <div className="small muted">{pd.days} • {pd.hoursPerDay} ชม./วัน</div>
-                  </div>
-                  <div>
-                    <div className="small muted">วันที่ส่งคำขอ</div>
-                    <div><b>{myApp.appliedAt}</b></div>
-                  </div>
-                  <div>
-                    <div className="small muted">อาจารย์ที่ปรึกษา</div>
-                    <div><b>อ.สมชาย ใจดี</b></div>
-                  </div>
-                </div>
-                <div className="divider-h"></div>
-                <div className="row-between" style={{flexWrap:"wrap", gap:10}}>
-                  <div className="muted small">หลังจบฝึกงานต้องส่งบันทึกสะท้อนคิดและรับการประเมินจากอาจารย์</div>
-                  <div className="row gap-2">
-                    <button className="btn btn-soft btn-sm" onClick={()=>toast("เปิดฟอร์มบันทึกสะท้อนคิด")}>📝 บันทึกสะท้อนคิด</button>
-                    <button className="btn btn-ghost btn-sm" onClick={cancel}>ยกเลิกคำขอ</button>
-                  </div>
-                </div>
+        myApp && mySite ? (
+          <div className="card" style={{padding:24}}>
+            <div className="row-between" style={{flexWrap:"wrap", gap:8}}>
+              <div>
+                <h3 style={{marginBottom:4}}>{mySite.name}</h3>
+                <div className="muted small">{mySite.dept} • 📍 {mySite.area}</div>
               </div>
-            );
-          })()
+              <Pill kind={myAppStatus.kind}>{myAppStatus.label}</Pill>
+            </div>
+            <div className="divider-h"></div>
+            <div className="row gap-4" style={{flexWrap:"wrap"}}>
+              <div>
+                <div className="small muted">วันที่ฝึก</div>
+                <div className="mono"><b>{mySite.startDate || "—"} → {mySite.endDate || "—"}</b></div>
+                {mySite.hoursPerDay && <div className="small muted">{mySite.hoursPerDay} ชม./วัน</div>}
+              </div>
+              <div>
+                <div className="small muted">วันที่ส่งคำขอ</div>
+                <div><b>{myApp.applied_at ? new Date(myApp.applied_at).toLocaleDateString("th-TH") : "—"}</b></div>
+              </div>
+              {myApp.evaluated && (
+                <div>
+                  <div className="small muted">คะแนนประเมิน</div>
+                  <div><b className="mono">{myApp.score}/5</b></div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : myApp ? (
+          <div className="card muted" style={{padding:40,textAlign:"center"}}>ข้อมูลสถานที่ที่สมัครไม่ครบ</div>
         ) : (
           <div className="card" style={{textAlign:"center", padding:60}}>
             <div style={{fontSize:36}}>🩺</div>
@@ -157,48 +191,30 @@ function StudentInternship({ toast }) {
         )
       )}
 
-      {tab === "periods" && (
-        <div className="card" style={{padding:0, overflow:"hidden"}}>
-          <table className="table">
-            <thead><tr><th>ช่วงเวลา</th><th>ระยะเวลา</th><th>วันเริ่ม</th><th>วันสิ้นสุด</th><th>เวลาปฏิบัติงาน</th><th>สถานะ</th></tr></thead>
-            <tbody>
-              {INTERNSHIP_PERIODS.map(p => (
-                <tr key={p.id}>
-                  <td><b>{p.label}</b></td>
-                  <td>{p.weeks} สัปดาห์</td>
-                  <td className="mono">{p.start}</td>
-                  <td className="mono">{p.end}</td>
-                  <td className="mono">{p.timeStart}–{p.timeEnd} น. <span className="muted small">({p.days})</span></td>
-                  <td>{p.open ? <Pill kind="green">เปิดรับสมัคร</Pill> : <Pill kind="gray">ปิด</Pill>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
       {open && (
         <Modal title={open.name} onClose={()=>setOpen(null)} width={620}
           footer={<>
             <button className="btn btn-ghost" onClick={()=>setOpen(null)}>ปิด</button>
-            <button className="btn btn-primary" onClick={()=>apply(open)}>ยืนยันสมัครฝึกงาน</button>
+            <button className="btn btn-primary" onClick={()=>apply(open)} disabled={busy}>{busy?"กำลังส่ง…":"ยืนยันสมัครฝึกงาน"}</button>
           </>}>
           <div className="muted small">{open.dept} • 📍 {open.area} • สายงาน {open.field}</div>
-          <p className="mt-3">{open.desc}</p>
-          <div className="divider-h"></div>
-          <div className="small" style={{fontWeight:600, marginBottom:6}}>สมรรถนะที่จะได้พัฒนา</div>
-          <div className="row gap-2" style={{flexWrap:"wrap"}}>
-            {open.skills.map((sk,i)=> <Pill key={i} kind="blue">{sk}</Pill>)}
-          </div>
+          {open.desc && <p className="mt-3">{open.desc}</p>}
+          {open.skills.length > 0 && (<>
+            <div className="divider-h"></div>
+            <div className="small" style={{fontWeight:600, marginBottom:6}}>สมรรถนะที่จะได้พัฒนา</div>
+            <div className="row gap-2" style={{flexWrap:"wrap"}}>
+              {open.skills.map((sk,i)=> <Pill key={i} kind="blue">{sk}</Pill>)}
+            </div>
+          </>)}
           <div className="divider-h"></div>
           <div className="row gap-4" style={{flexWrap:"wrap"}}>
-            <div><div className="small muted">ช่วงที่เลือก</div><b>{period.label}</b></div>
-            <div><div className="small muted">เวลาปฏิบัติงาน</div><b className="mono">{period.timeStart}–{period.timeEnd} น.</b> <span className="small muted">({period.days})</span></div>
+            <div><div className="small muted">วันที่ฝึก</div><b className="mono">{open.startDate || "—"} → {open.endDate || "—"}</b></div>
+            {open.hoursPerDay && <div><div className="small muted">ชั่วโมง/วัน</div><b className="mono">{open.hoursPerDay} ชม.</b></div>}
             <div><div className="small muted">ที่นั่งคงเหลือ</div><b className="mono">{open.cap - open.taken}/{open.cap}</b></div>
           </div>
           <div className="privacy mt-4">
             <div className="h">📌 หมายเหตุ</div>
-            <div className="mt-2">เมื่อยืนยันแล้ว ระบบจะส่งคำขอให้อาจารย์ที่ปรึกษาอนุมัติก่อน จากนั้นหลักสูตรจะติดต่อประสานงานสถานที่ฝึกให้</div>
+            <div className="mt-2">ระบบจะส่งคำขอให้อาจารย์อนุมัติก่อน — ดูสถานะได้ที่แท็บ "คำขอของฉัน"</div>
           </div>
         </Modal>
       )}
@@ -208,138 +224,92 @@ function StudentInternship({ toast }) {
 
 /* ---------- Teacher: Internship evaluation ---------- */
 function TeacherInternship({ toast }) {
-  const [apps, setApps] = React.useState(initialApps);
+  const backend = !!(window.PfInternship && window.PF_SUPABASE_READY);
+  const [apps, setApps] = React.useState([]);
+  const [sites, setSites] = React.useState([]);
   const [tab, setTab] = React.useState("pending");
-  const [open, setOpen] = React.useState(null);
-  const [evalForm, setEvalForm] = React.useState({ score:4, comment:"", levels:{} });
+  const [loading, setLoading] = React.useState(backend);
 
-  const approve = (id) => { setApps(a => a.map(x => x.id === id ? { ...x, status:"approved" } : x)); toast("อนุมัติคำขอแล้ว"); };
-  const reject  = (id) => { setApps(a => a.map(x => x.id === id ? { ...x, status:"rejected" } : x)); toast("ปฏิเสธคำขอแล้ว"); };
+  const load = React.useCallback(async () => {
+    if (!backend) { setLoading(false); return; }
+    setLoading(true);
+    try {
+      const [appRows, siteRows] = await Promise.all([
+        window.PfInternship.applications(),
+        window.PfInternship.sites(),
+      ]);
+      setApps(appRows || []);
+      setSites((siteRows || []).map(mapSiteRow));
+    } catch (e) { toast("โหลดคำขอไม่สำเร็จ: " + (e.message||e)); }
+    finally { setLoading(false); }
+  }, [backend, toast]);
+  React.useEffect(() => { load(); }, [load]);
 
-  const startEval = (a) => {
-    setEvalForm({ score: 4, comment: "", levels:{} });
-    setOpen(a);
+  const setStatus = async (id, status) => {
+    try {
+      await window.PfInternship.setStatus(id, status);
+      toast(status === "approved" ? "อนุมัติคำขอแล้ว" : "ปฏิเสธคำขอแล้ว");
+      await load();
+    } catch (e) { toast("อัปเดตไม่สำเร็จ: " + (e.message||e)); }
   };
-  const submitEval = () => {
-    setApps(a => a.map(x => x.id === open.id ? { ...x, evaluated:true, score: evalForm.score } : x));
-    toast(`บันทึกการประเมินฝึกงาน: ${evalForm.score}/5 (${LEVEL_NAMES[Math.round(evalForm.score)-1].label})`);
-    setOpen(null);
-  };
 
-  const pending  = apps.filter(a => a.status === "pending");
-  const ongoing  = apps.filter(a => a.status === "approved" && !a.evaluated);
-  const done     = apps.filter(a => a.evaluated);
-
+  const pending = apps.filter(a => a.status === "pending");
+  const ongoing = apps.filter(a => a.status === "approved" && !a.evaluated);
+  const done    = apps.filter(a => a.evaluated);
   const list = tab === "pending" ? pending : tab === "ongoing" ? ongoing : done;
 
   return (
     <div className="page">
       <h2 style={{fontSize:22}}>การฝึกงานของนักเรียน</h2>
-      <div className="muted small">อนุมัติคำขอ ติดตามความคืบหน้า และประเมินสมรรถนะหลังเสร็จสิ้นการฝึก</div>
+      <div className="muted small">อนุมัติ/ปฏิเสธคำขอ และดูภาพรวมว่านักเรียนคนไหนเลือกฝึกที่ไหน</div>
 
       <div className="stat-grid mt-4" style={{gridTemplateColumns:"repeat(3,1fr)"}}>
         <div className="stat stat-amber"><div className="num">{pending.length}</div><div className="lbl">รออนุมัติ</div></div>
-        <div className="stat stat-blue"><div className="num">{ongoing.length}</div><div className="lbl">กำลังฝึก / รอประเมิน</div></div>
-        <div className="stat stat-green"><div className="num">{done.length}</div><div className="lbl">ประเมินเสร็จสิ้น</div></div>
+        <div className="stat stat-blue"><div className="num">{ongoing.length}</div><div className="lbl">กำลังฝึก</div></div>
+        <div className="stat stat-green"><div className="num">{done.length}</div><div className="lbl">เสร็จสิ้น</div></div>
       </div>
 
       <div className="tabs mt-4">
         <button className={tab==="pending"?"active":""} onClick={()=>setTab("pending")}>รออนุมัติ ({pending.length})</button>
-        <button className={tab==="ongoing"?"active":""} onClick={()=>setTab("ongoing")}>รอประเมิน ({ongoing.length})</button>
+        <button className={tab==="ongoing"?"active":""} onClick={()=>setTab("ongoing")}>กำลังฝึก ({ongoing.length})</button>
         <button className={tab==="done"   ?"active":""} onClick={()=>setTab("done")}>เสร็จสิ้น ({done.length})</button>
       </div>
 
-      {list.length === 0
-        ? <div className="card" style={{textAlign:"center", padding:50}}>
-            <div className="muted">ไม่มีรายการในหมวดนี้</div>
-          </div>
-        : <div style={{display:"flex", flexDirection:"column", gap:12}}>
-            {list.map(a => {
-              const site = INTERNSHIP_SITES.find(s => s.id === a.siteId);
-              const pd   = INTERNSHIP_PERIODS.find(p => p.id === a.periodId);
-              return (
-                <div className="item" key={a.id}>
-                  <Avatar emoji="👩‍🎓" size={48}/>
-                  <div className="body">
-                    <h3 style={{margin:0}}>{a.student} <span className="mono small muted">({a.studentId})</span></h3>
-                    <div className="muted small mt-2">
-                      📍 {site.name} • {site.dept}
-                    </div>
-                    <div className="muted small mt-2">🗓 {pd.label} ({pd.weeks} สัปดาห์) • 🕐 {pd.timeStart}–{pd.timeEnd} น. ({pd.days})</div>
-                    {a.reflectionDone && <Pill kind="teal">✓ ส่งบันทึกสะท้อนคิดแล้ว</Pill>}
-                    {a.evaluated && <Pill kind="green">คะแนน {a.score}/5 — {LEVEL_NAMES[Math.round(a.score)-1].label}</Pill>}
+      {loading ? (
+        <div className="card muted" style={{padding:40,textAlign:"center"}}>กำลังโหลด…</div>
+      ) : list.length === 0 ? (
+        <div className="card" style={{textAlign:"center", padding:50}}>
+          <div className="muted">ไม่มีรายการในหมวดนี้</div>
+        </div>
+      ) : (
+        <div style={{display:"flex", flexDirection:"column", gap:12}}>
+          {list.map(a => {
+            const site = sites.find(s => s.id === a.site_id);
+            return (
+              <div className="item" key={a.id}>
+                <Avatar emoji="👩‍🎓" size={48}/>
+                <div className="body">
+                  <h3 style={{margin:0}}>{a.student_name || "—"}</h3>
+                  <div className="muted small mt-2">
+                    📍 {site ? site.name : "—"}{site && site.dept ? " • " + site.dept : ""}
                   </div>
-                  <div className="row gap-2">
-                    {a.status === "pending" && <>
-                      <button className="btn btn-teal btn-sm" onClick={()=>approve(a.id)}>อนุมัติ</button>
-                      <button className="btn btn-ghost btn-sm" onClick={()=>reject(a.id)}>ปฏิเสธ</button>
-                    </>}
-                    {a.status === "approved" && !a.evaluated && (
-                      <button className="btn btn-primary btn-sm" onClick={()=>startEval(a)} disabled={!a.reflectionDone}>
-                        {a.reflectionDone ? "ประเมินสมรรถนะ" : "รอบันทึกสะท้อนคิด"}
-                      </button>
-                    )}
-                    {a.evaluated && <button className="btn btn-ghost btn-sm" onClick={()=>toast("ดูบันทึกการประเมิน")}>ดูรายงาน</button>}
-                  </div>
+                  {site && (site.startDate || site.endDate) && (
+                    <div className="muted small mono mt-2">🗓 {site.startDate || "—"} → {site.endDate || "—"}{site.hoursPerDay ? ` • ${site.hoursPerDay} ชม./วัน` : ""}</div>
+                  )}
+                  <div className="muted small mt-2">ส่งคำขอ {a.applied_at ? new Date(a.applied_at).toLocaleDateString("th-TH") : "—"}</div>
+                  {a.evaluated && <Pill kind="green">คะแนน {a.score}/5</Pill>}
                 </div>
-              );
-            })}
-          </div>}
-
-      {open && (() => {
-        const site = INTERNSHIP_SITES.find(s => s.id === open.siteId);
-        return (
-          <Modal title={`ประเมินการฝึกงาน: ${open.student}`} onClose={()=>setOpen(null)} width={720}
-            footer={<>
-              <button className="btn btn-ghost" onClick={()=>setOpen(null)}>ยกเลิก</button>
-              <button className="btn btn-primary" onClick={submitEval}>บันทึกการประเมิน</button>
-            </>}>
-            <div className="muted small">📍 {site.name} • {site.dept}</div>
-
-            <div className="divider-h"></div>
-            <div style={{fontWeight:600, marginBottom:8}}>ประเมินสมรรถนะที่พัฒนา</div>
-            <div className="muted small" style={{marginBottom:10}}>
-              {LEVEL_NAMES.map(l => <span key={l.n} style={{marginRight:12}}><b style={{color:l.color}}>{l.short}</b> {l.label}</span>)}
-            </div>
-            {site.skills.map(c => (
-              <div key={c} className="row-between" style={{padding:"6px 0"}}>
-                <span>{c}</span>
                 <div className="row gap-2">
-                  {[1,2,3,4,5].map(v => (
-                    <button key={v}
-                      onClick={()=>setEvalForm(f=>({...f, levels:{...f.levels, [c]:v}}))}
-                      className="btn btn-sm"
-                      title={LEVEL_NAMES[v-1].label}
-                      style={{
-                        background: evalForm.levels[c] === v ? LEVEL_NAMES[v-1].color : "#fff",
-                        color: evalForm.levels[c] === v ? "#fff" : "var(--ink)",
-                        border:"1px solid var(--line)", padding:"4px 12px", minWidth:36
-                      }}>{v}</button>
-                  ))}
+                  {a.status === "pending" && <>
+                    <button className="btn btn-teal btn-sm" onClick={()=>setStatus(a.id, "approved")}>อนุมัติ</button>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>setStatus(a.id, "rejected")} style={{color:"#dc2626"}}>ปฏิเสธ</button>
+                  </>}
                 </div>
               </div>
-            ))}
-
-            <div className="divider-h"></div>
-            <div className="field">
-              <label>คะแนนรวม (1–5) — <b style={{color: LEVEL_NAMES[Math.round(evalForm.score)-1].color}}>{LEVEL_NAMES[Math.round(evalForm.score)-1].label}</b></label>
-              <div className="row gap-3" style={{alignItems:"center"}}>
-                <input type="range" min="1" max="5" step="0.1"
-                  value={evalForm.score}
-                  onChange={e=>setEvalForm(s=>({...s, score: +e.target.value}))}
-                  style={{flex:1}}/>
-                <div className="mono" style={{minWidth:48, textAlign:"right", fontWeight:600}}>{evalForm.score.toFixed(1)}</div>
-              </div>
-            </div>
-
-            <div className="field">
-              <label>ความเห็นจากการประเมิน</label>
-              <textarea className="textarea" placeholder="ข้อเสนอแนะจากการนิเทศ จุดแข็ง สิ่งที่ควรพัฒนาต่อ"
-                value={evalForm.comment} onChange={e=>setEvalForm(s=>({...s, comment:e.target.value}))}/>
-            </div>
-          </Modal>
-        );
-      })()}
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -363,13 +333,19 @@ function AdminInternship({ toast }) {
     hoursPerDay: r.hours_per_day != null ? r.hours_per_day : null,
   });
 
+  const [apps, setApps] = React.useState([]);
+
   const loadSites = React.useCallback(async () => {
-    if (!backend) { setSites([]); setLoading(false); return; }
+    if (!backend) { setSites([]); setApps([]); setLoading(false); return; }
     setLoading(true);
     try {
-      const rows = await window.PfInternship.sites();
-      setSites((rows || []).map(mapSite));
-    } catch (e) { toast("โหลดสถานที่ไม่สำเร็จ: " + (e.message||e)); }
+      const [siteRows, appRows] = await Promise.all([
+        window.PfInternship.sites(),
+        window.PfInternship.applications(),
+      ]);
+      setSites((siteRows || []).map(mapSite));
+      setApps(appRows || []);
+    } catch (e) { toast("โหลดข้อมูลไม่สำเร็จ: " + (e.message||e)); }
     finally { setLoading(false); }
   }, [backend, toast]);
   React.useEffect(() => { loadSites(); }, [loadSites]);
@@ -508,21 +484,22 @@ function AdminInternship({ toast }) {
       {tab === "apps" && (
         <div className="card" style={{padding:0, overflow:"hidden"}}>
           <table className="table">
-            <thead><tr><th>นักเรียน</th><th>สถานที่</th><th>ช่วงเวลา</th><th>สถานะ</th><th>การประเมิน</th></tr></thead>
+            <thead><tr><th>นักเรียน</th><th>สถานที่</th><th>ช่วงเวลา</th><th>วันสมัคร</th><th>สถานะ</th><th>การประเมิน</th></tr></thead>
             <tbody>
-              {initialApps.length === 0 ? (
-                <tr><td colSpan={5} className="muted" style={{padding:30,textAlign:"center"}}>ยังไม่มีคำขอจากนักเรียน</td></tr>
-              ) : initialApps.map(a => {
-                const s = sites.find(x => x.id === a.siteId);
+              {apps.length === 0 ? (
+                <tr><td colSpan={6} className="muted" style={{padding:30,textAlign:"center"}}>ยังไม่มีคำขอจากนักเรียน</td></tr>
+              ) : apps.map(a => {
+                const s = sites.find(x => x.id === a.site_id);
                 return (
                   <tr key={a.id}>
-                    <td><b>{a.student}</b><div className="mono small muted">{a.studentId}</div></td>
+                    <td><b>{a.student_name || "—"}</b></td>
                     <td>{s ? s.name : "—"}<div className="small muted">{s ? s.dept : ""}</div></td>
                     <td className="mono small">
-                      {s && s.startDate && s.endDate
-                        ? <>{s.startDate} → {s.endDate}</>
+                      {s && (s.startDate || s.endDate)
+                        ? <>{s.startDate || "—"} → {s.endDate || "—"}</>
                         : <span className="muted">—</span>}
                     </td>
+                    <td className="mono small">{a.applied_at ? new Date(a.applied_at).toLocaleDateString("th-TH") : "—"}</td>
                     <td>
                       {a.status === "approved" ? <Pill kind="green">อนุมัติ</Pill> :
                        a.status === "rejected" ? <Pill kind="red">ไม่อนุมัติ</Pill> :
@@ -530,7 +507,7 @@ function AdminInternship({ toast }) {
                     </td>
                     <td>
                       {a.evaluated ? <Pill kind="blue">คะแนน {a.score}/5</Pill> :
-                       a.reflectionDone ? <Pill kind="purple">รอประเมิน</Pill> :
+                       a.reflection_done ? <Pill kind="purple">รอประเมิน</Pill> :
                        <span className="muted">—</span>}
                     </td>
                   </tr>

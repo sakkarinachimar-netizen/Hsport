@@ -262,24 +262,57 @@ function TeacherReview({ toast }) {
 
 /* ---------- My Students ---------- */
 function TeacherStudents({ toast }) {
+  const backend = !!(window.PfUsers && window.PF_SUPABASE_READY);
   const [q, setQ] = React.useState("");
-  const [room, setRoom] = React.useState("all");
-  const filtered = MY_STUDENTS.filter(s =>
-    (room === "all" || s.room === room) &&
-    (!q || s.name.includes(q) || s.id.includes(q))
+  const [students, setStudents] = React.useState([]);
+  const [loading, setLoading] = React.useState(backend);
+  const [openOf, setOpenOf] = React.useState(null);
+  const [levels, setLevels] = React.useState({});
+  const [loadingLevels, setLoadingLevels] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!backend) return;
+    (async () => {
+      try {
+        const all = await window.PfUsers.list();
+        setStudents((all || []).filter(u => u.role === "student"));
+      } catch (e) { toast("โหลดรายชื่อนักเรียนไม่สำเร็จ: " + (e.message||e)); }
+      finally { setLoading(false); }
+    })();
+  }, [backend, toast]);
+
+  const filtered = students.filter(s =>
+    !q || (s.name||"").includes(q) || (s.student_code||"").includes(q) || (s.email||"").toLowerCase().includes(q.toLowerCase())
   );
+
+  const openProfile = async (s) => {
+    setOpenOf(s); setLevels({}); setLoadingLevels(true);
+    try {
+      const l = await window.computeMyLevels(s.id);
+      setLevels(l || {});
+    } catch (e) { /* ignore */ }
+    finally { setLoadingLevels(false); }
+  };
+
+  const radarLabels = [
+    ...CORE_COMPETENCIES.map(c => c.short),
+    ...SPEC_COMPETENCIES.map(c => c.short),
+  ];
+  const radarValues = openOf ? [
+    ...CORE_COMPETENCIES.map(c => levels[c.key] || 0),
+    ...SPEC_COMPETENCIES.map(c => levels[c.key] || 0),
+  ] : [];
+  const evaluatedCount = openOf ? Object.values(levels).filter(v => v > 0).length : 0;
+
   return (
     <div className="page">
       <div className="row-between" style={{marginBottom:18}}>
-        <h2 className="mb-0" style={{fontSize:22}}>นักเรียนในที่ปรึกษา</h2>
+        <div>
+          <h2 className="mb-0" style={{fontSize:22}}>นักเรียนในระบบ</h2>
+          <div className="muted small">ดูภาพรวมสมรรถนะของนักเรียนแต่ละคน</div>
+        </div>
         <div className="filterbar">
-          <input className="input" placeholder="ค้นหาด้วยชื่อหรือรหัส" value={q} onChange={e=>setQ(e.target.value)}/>
-          <select className="select" value={room} onChange={e=>setRoom(e.target.value)}>
-            <option value="all">ทุกห้อง</option>
-            <option>ม.5/2</option>
-            <option>ม.6/1</option>
-          </select>
-          <button className="btn btn-soft btn-sm" onClick={()=>toast("ส่งออกรายชื่อ (CSV)")}>ส่งออก CSV</button>
+          <input className="input" placeholder="ค้นหาด้วยชื่อ/รหัส/อีเมล" value={q} onChange={e=>setQ(e.target.value)}/>
         </div>
       </div>
 
@@ -289,34 +322,77 @@ function TeacherStudents({ toast }) {
             <tr>
               <th style={{width:60}}></th>
               <th>นักเรียน</th>
-              <th>ห้อง</th>
-              <th>หลักฐาน</th>
-              <th>คะแนนเฉลี่ย</th>
-              <th>รอตรวจ</th>
-              <th>ส่งล่าสุด</th>
-              <th></th>
+              <th>รหัส</th>
+              <th>ชั้น</th>
+              <th>อีเมล</th>
+              <th className="text-right">การจัดการ</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map(s => (
+            {loading ? (
+              <tr><td colSpan={6} className="muted" style={{padding:20,textAlign:"center"}}>กำลังโหลด…</td></tr>
+            ) : filtered.length === 0 ? (
+              <tr><td colSpan={6} className="muted" style={{padding:30,textAlign:"center"}}>ไม่พบนักเรียน</td></tr>
+            ) : filtered.map(s => (
               <tr key={s.id}>
                 <td><Avatar emoji="👤" size={32}/></td>
-                <td><b>{s.name}</b><div className="small muted mono">{s.id}</div></td>
-                <td>{s.room}</td>
-                <td className="num">{s.count}</td>
-                <td>
-                  <div className="row gap-2"><span className="mono">{s.avg}</span>
-                    <div className="meter" style={{width:80}}><span style={{width:(s.avg/5*100)+"%"}}></span></div>
-                  </div>
+                <td><b>{s.name}</b></td>
+                <td className="mono small">{s.student_code || "—"}</td>
+                <td>{s.grade || "—"}</td>
+                <td className="muted small">{s.email}</td>
+                <td className="text-right">
+                  <button className="btn btn-ghost btn-sm" onClick={()=>openProfile(s)}>ดูภาพรวมสมรรถนะ</button>
                 </td>
-                <td>{s.pend > 0 ? <Pill kind="amber">{s.pend}</Pill> : <span className="muted">—</span>}</td>
-                <td className="muted">{s.last}</td>
-                <td className="text-right"><button className="btn btn-ghost btn-sm" onClick={()=>toast(`เปิดโปรไฟล์ของ ${s.name}`)}>ดูโปรไฟล์</button></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {openOf && (
+        <Modal title={`ภาพรวมสมรรถนะ: ${openOf.name}`} onClose={()=>setOpenOf(null)} width={780}
+          footer={<button className="btn btn-ghost" onClick={()=>setOpenOf(null)}>ปิด</button>}>
+          <div className="muted small">
+            {openOf.email}{openOf.student_code ? " • รหัส " + openOf.student_code : ""}{openOf.grade ? " • ชั้น " + openOf.grade : ""}
+          </div>
+          <div className="divider-h"></div>
+          {loadingLevels ? (
+            <div className="muted" style={{padding:30,textAlign:"center"}}>กำลังคำนวณ…</div>
+          ) : evaluatedCount === 0 ? (
+            <div className="muted" style={{padding:30,textAlign:"center"}}>นักเรียนคนนี้ยังไม่มีหลักฐานที่ได้รับการประเมิน</div>
+          ) : (
+          <div className="two-col">
+            <div>
+              <h3 style={{marginTop:0}}>ระดับแต่ละสมรรถนะ</h3>
+              <div className="muted small" style={{marginBottom:6}}>สมรรถนะหลัก</div>
+              {CORE_COMPETENCIES.map(c => {
+                const lvl = levels[c.key] || 0;
+                return (
+                  <div key={c.key} className="comp-row">
+                    <div className="lbl"><span>{c.short}</span><span className="muted">{lvl > 0 ? `${LEVEL_NAMES[lvl-1].label} (${lvl}/5)` : "—"}</span></div>
+                    <ProgressBar value={lvl} max={5}/>
+                  </div>
+                );
+              })}
+              <div className="muted small mt-3" style={{marginBottom:6}}>สมรรถนะเฉพาะ</div>
+              {SPEC_COMPETENCIES.map(c => {
+                const lvl = levels[c.key] || 0;
+                return (
+                  <div key={c.key} className="comp-row">
+                    <div className="lbl"><span>{c.short}</span><span className="muted">{lvl > 0 ? `${LEVEL_NAMES[lvl-1].label} (${lvl}/5)` : "—"}</span></div>
+                    <ProgressBar value={lvl} max={5}/>
+                  </div>
+                );
+              })}
+            </div>
+            <div>
+              <h3 style={{marginTop:0}}>ภาพรวม</h3>
+              <RadarChart labels={radarLabels} values={radarValues} max={5} size={340}/>
+            </div>
+          </div>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }
