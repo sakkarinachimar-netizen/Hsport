@@ -285,11 +285,17 @@ function TeacherStudents({ toast }) {
     !q || (s.name||"").includes(q) || (s.student_code||"").includes(q) || (s.email||"").toLowerCase().includes(q.toLowerCase())
   );
 
+  const [grades, setGrades] = React.useState({ rows: [], avg: {} });
+
   const openProfile = async (s) => {
-    setOpenOf(s); setLevels({}); setLoadingLevels(true);
+    setOpenOf(s); setLevels({}); setLoadingLevels(true); setGrades({ rows: [], avg: {} });
     try {
-      const l = await window.computeMyLevels(s.id);
+      const [l, gradeRows] = await Promise.all([
+        window.computeMyLevels(s.id),
+        window.PfGrades ? window.PfGrades.listByStudent(s.id) : Promise.resolve([]),
+      ]);
       setLevels(l || {});
+      setGrades({ rows: gradeRows, avg: window.PfGrades ? window.PfGrades.averagesBySubject(gradeRows) : {} });
     } catch (e) { /* ignore */ }
     finally { setLoadingLevels(false); }
   };
@@ -390,6 +396,56 @@ function TeacherStudents({ toast }) {
               <RadarChart labels={radarLabels} values={radarValues} max={5} size={340}/>
             </div>
           </div>
+          )}
+
+          {window.PfGrades && (
+            <>
+              <div className="divider-h"></div>
+              <h3>📚 ผลการเรียน</h3>
+              {grades.rows.length === 0 ? (
+                <div className="muted small" style={{padding:14}}>ยังไม่มีข้อมูลเกรด</div>
+              ) : (
+                <>
+                  <div className="stat-grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(110px,1fr))", marginBottom:14}}>
+                    <div className="stat stat-blue">
+                      <div className="num">{grades.avg.gpa != null ? grades.avg.gpa.toFixed(2) : "—"}</div>
+                      <div className="lbl">GPA เฉลี่ยรวม</div>
+                    </div>
+                    {(window.GRADE_SUBJECTS || []).map(s => (
+                      <div key={s.key} className="stat stat-green" style={{padding:"10px 12px"}}>
+                        <div className="num" style={{fontSize:16}}>{grades.avg[s.key] != null ? grades.avg[s.key].toFixed(2) : "—"}</div>
+                        <div className="lbl" style={{fontSize:11}}>{s.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {(() => {
+                    const grouped = window.PfGrades.groupBySemester(grades.rows);
+                    const sems = Object.keys(grouped).sort();
+                    return (
+                      <table className="table">
+                        <thead>
+                          <tr><th>เทอม</th><th>GPA</th>{(window.GRADE_SUBJECTS||[]).map(s => <th key={s.key} className="small">{s.label}</th>)}</tr>
+                        </thead>
+                        <tbody>
+                          {sems.map(sem => {
+                            const g = grouped[sem];
+                            return (
+                              <tr key={sem}>
+                                <td><b>{sem}</b></td>
+                                <td className="mono"><b>{g.gpa != null ? Number(g.gpa).toFixed(2) : "—"}</b></td>
+                                {(window.GRADE_SUBJECTS||[]).map(s => (
+                                  <td key={s.key} className="mono small">{g[s.key] != null ? Number(g[s.key]).toFixed(2) : "—"}</td>
+                                ))}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    );
+                  })()}
+                </>
+              )}
+            </>
           )}
         </Modal>
       )}

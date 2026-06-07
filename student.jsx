@@ -40,10 +40,18 @@ const ACTIVITIES = [];
 /* ---------- Home ---------- */
 function StudentHome({ go, toast }) {
   const [levels, setLevels] = React.useState({});
+  const [gradeAvg, setGradeAvg] = React.useState({});
   React.useEffect(() => {
-    if (!window.computeMyLevels || !window.pfCurrentUser) return;
+    if (!window.pfCurrentUser) return;
     let alive = true;
-    window.computeMyLevels(window.pfCurrentUser.id).then(l => { if (alive) setLevels(l); });
+    if (window.computeMyLevels) {
+      window.computeMyLevels(window.pfCurrentUser.id).then(l => { if (alive) setLevels(l); });
+    }
+    if (window.PfGrades) {
+      window.PfGrades.listByStudent(window.pfCurrentUser.id).then(rows => {
+        if (alive) setGradeAvg(window.PfGrades.averagesBySubject(rows));
+      }).catch(()=>{});
+    }
     return () => { alive = false; };
   }, []);
   const radarValues = [
@@ -93,6 +101,28 @@ function StudentHome({ go, toast }) {
               <RadarChart labels={RADAR_LABELS} values={radarValues} max={5} size={380}/>
             </div>
           </div>
+
+          {window.PfGrades && (
+            <div className="card mt-4">
+              <div className="row-between" style={{marginBottom:6}}>
+                <h2 style={{margin:0}}>📚 ผลการเรียน (ค่าเฉลี่ย)</h2>
+                <button className="btn btn-ghost btn-sm" onClick={()=>go("profile")}>แก้ไข →</button>
+              </div>
+              <div className="muted small" style={{marginBottom:10}}>เฉลี่ยจากทุกเทอมที่บันทึกไว้</div>
+              <div className="stat-grid" style={{gridTemplateColumns:"repeat(2,1fr)"}}>
+                <div className="stat stat-blue">
+                  <div className="num">{gradeAvg.gpa != null ? gradeAvg.gpa.toFixed(2) : "—"}</div>
+                  <div className="lbl">GPA เฉลี่ยรวม</div>
+                </div>
+                {(window.GRADE_SUBJECTS || []).map(s => (
+                  <div key={s.key} className="stat stat-green" style={{padding:"10px 12px"}}>
+                    <div className="num" style={{fontSize:18}}>{gradeAvg[s.key] != null ? gradeAvg[s.key].toFixed(2) : "—"}</div>
+                    <div className="lbl" style={{fontSize:11}}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="card mt-4">
             <h2>การดำเนินการด่วน</h2>
@@ -597,6 +627,143 @@ function StudentActivities({ toast }) {
   );
 }
 
+/* ---------- Grades card (เกรดต่อเทอม + รายวิชา) ---------- */
+function StudentGradesCard({ studentId, toast, refreshKey, onChange }) {
+  const backend = !!(window.PfGrades && window.PF_SUPABASE_READY);
+  const [rows, setRows] = React.useState([]);
+  const [loading, setLoading] = React.useState(backend);
+  const [open, setOpen] = React.useState(null); // semester being edited or "new"
+  const [form, setForm] = React.useState({ semester: "", gpa: "", grades: {} });
+  const [busy, setBusy] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    if (!backend) { setLoading(false); return; }
+    setLoading(true);
+    try {
+      const data = await window.PfGrades.listByStudent(studentId);
+      setRows(data);
+    } catch (e) { toast("โหลดเกรดไม่สำเร็จ: " + (e.message||e)); }
+    finally { setLoading(false); }
+  }, [backend, studentId, toast]);
+  React.useEffect(() => { load(); }, [load, refreshKey]);
+
+  const grouped = window.PfGrades ? window.PfGrades.groupBySemester(rows) : {};
+  const semesters = Object.keys(grouped).sort();
+
+  const openAdd = () => { setForm({ semester: "", gpa: "", grades: {} }); setOpen("new"); };
+  const openEdit = (sem) => {
+    const g = grouped[sem] || {};
+    const grades = {};
+    GRADE_SUBJECTS.forEach(s => { grades[s.key] = g[s.key] != null ? String(g[s.key]) : ""; });
+    setForm({ semester: sem, gpa: g.gpa != null ? String(g.gpa) : "", grades });
+    setOpen(sem);
+  };
+
+  const saveSem = async () => {
+    if (!form.semester.trim()) { toast("กรอกเทอม เช่น 1/2568"); return; }
+    setBusy(true);
+    try {
+      const tasks = [];
+      if (form.gpa !== "") tasks.push(window.PfGrades.save(studentId, form.semester, "gpa", +form.gpa));
+      GRADE_SUBJECTS.forEach(s => {
+        const v = form.grades[s.key];
+        if (v !== "" && v != null) tasks.push(window.PfGrades.save(studentId, form.semester, s.key, +v));
+      });
+      await Promise.all(tasks);
+      toast("บันทึกเกรดเรียบร้อย");
+      setOpen(null);
+      await load();
+      onChange && onChange();
+    } catch (e) { toast("บันทึกไม่สำเร็จ: " + (e.message||e)); }
+    finally { setBusy(false); }
+  };
+
+  const deleteSem = async () => {
+    if (!confirm(`ลบข้อมูลเทอม ${form.semester} ทั้งหมด?`)) return;
+    setBusy(true);
+    try {
+      await window.PfGrades.removeSemester(studentId, form.semester);
+      toast("ลบเรียบร้อย");
+      setOpen(null);
+      await load();
+      onChange && onChange();
+    } catch (e) { toast("ลบไม่สำเร็จ: " + (e.message||e)); }
+    finally { setBusy(false); }
+  };
+
+  if (!backend) return null;
+  return (
+    <div className="card mt-4">
+      <div className="row-between" style={{marginBottom:8}}>
+        <h3 style={{margin:0}}>📚 เกรดของฉัน</h3>
+        <button className="btn btn-primary btn-sm" onClick={openAdd}>+ เพิ่ม/แก้ไขเทอม</button>
+      </div>
+      {loading ? (
+        <div className="muted" style={{padding:14}}>กำลังโหลด…</div>
+      ) : semesters.length === 0 ? (
+        <div className="muted small" style={{padding:14}}>ยังไม่มีข้อมูลเกรด — กดปุ่ม "+ เพิ่ม/แก้ไขเทอม" เพื่อบันทึก</div>
+      ) : (
+        <table className="table">
+          <thead>
+            <tr><th>เทอม</th><th>GPA</th>{GRADE_SUBJECTS.map(s => <th key={s.key} className="small">{s.label}</th>)}<th></th></tr>
+          </thead>
+          <tbody>
+            {semesters.map(sem => {
+              const g = grouped[sem];
+              return (
+                <tr key={sem}>
+                  <td><b>{sem}</b></td>
+                  <td className="mono"><b>{g.gpa != null ? Number(g.gpa).toFixed(2) : "—"}</b></td>
+                  {GRADE_SUBJECTS.map(s => (
+                    <td key={s.key} className="mono small">{g[s.key] != null ? Number(g[s.key]).toFixed(2) : "—"}</td>
+                  ))}
+                  <td className="text-right">
+                    <button className="btn btn-ghost btn-sm" onClick={()=>openEdit(sem)}>แก้</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+
+      {open && (
+        <Modal title={open === "new" ? "เพิ่มเทอมใหม่" : `แก้ไขเทอม ${form.semester}`} onClose={()=>setOpen(null)} width={520}
+          footer={<>
+            {open !== "new" && <button className="btn btn-ghost" onClick={deleteSem} disabled={busy} style={{marginRight:"auto",color:"#dc2626"}}>ลบเทอมนี้</button>}
+            <button className="btn btn-ghost" onClick={()=>setOpen(null)}>ยกเลิก</button>
+            <button className="btn btn-primary" onClick={saveSem} disabled={busy}>{busy?"กำลังบันทึก…":"บันทึก"}</button>
+          </>}>
+          <div className="field">
+            <label>ภาคเรียน</label>
+            <input className="input" placeholder="เช่น 1/2568" value={form.semester}
+              onChange={e=>setForm(f=>({...f, semester:e.target.value}))}
+              disabled={open !== "new"}/>
+          </div>
+          <div className="field">
+            <label>เกรดเฉลี่ย (GPA) — 0.00 ถึง 4.00</label>
+            <input className="input mono" type="number" min="0" max="4" step="0.01"
+              value={form.gpa} onChange={e=>setForm(f=>({...f, gpa:e.target.value}))} placeholder="เช่น 3.75"/>
+          </div>
+          <div className="divider-h"></div>
+          <div className="muted small" style={{marginBottom:6}}>เกรดรายวิชา (เว้นว่างได้)</div>
+          <div className="row gap-3" style={{flexWrap:"wrap"}}>
+            {GRADE_SUBJECTS.map(s => (
+              <div key={s.key} className="field" style={{flex:"1 1 45%"}}>
+                <label>{s.label}</label>
+                <input className="input mono" type="number" min="0" max="4" step="0.01"
+                  value={form.grades[s.key] || ""}
+                  onChange={e=>setForm(f=>({...f, grades:{...f.grades, [s.key]:e.target.value}}))}
+                  placeholder="0–4"/>
+              </div>
+            ))}
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
 /* ---------- Profile ---------- */
 function StudentProfile({ toast, onLogout }) {
   const [u, setU] = React.useState(currentProfile());
@@ -646,6 +813,8 @@ function StudentProfile({ toast, onLogout }) {
               <div className="stat stat-purple"><div className="num">—</div><div className="lbl">คะแนนเฉลี่ย</div></div>
             </div>
           </div>
+
+          <StudentGradesCard studentId={(window.pfCurrentUser||{}).id} toast={toast}/>
 
           <div className="card mt-4">
             <h3>ความก้าวหน้าล่าสุด</h3>

@@ -180,6 +180,63 @@ const PfInternship = {
   },
 };
 
+// รายวิชาที่นักเรียนกรอกได้
+const GRADE_SUBJECTS = [
+  { key: "math",      label: "คณิตศาสตร์" },
+  { key: "biology",   label: "ชีววิทยา" },
+  { key: "chemistry", label: "เคมี" },
+  { key: "physics",   label: "ฟิสิกส์" },
+  { key: "astronomy", label: "ดาราศาสตร์" },
+  { key: "english",   label: "ภาษาอังกฤษ" },
+];
+window.GRADE_SUBJECTS = GRADE_SUBJECTS;
+
+const PfGrades = {
+  async listByStudent(studentId) {
+    if (!_pf()) return [];
+    const { data, error } = await _pf().from('student_grades').select('*')
+      .eq('student_id', studentId).order('semester');
+    if (error) throw error;
+    return data || [];
+  },
+  async save(studentId, semester, subject, grade) {
+    if (!_pf()) return null;
+    const { error } = await _pf().from('student_grades').upsert({
+      student_id: studentId, semester, subject, grade,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'student_id,semester,subject' });
+    if (error) throw error;
+  },
+  async removeSemester(studentId, semester) {
+    if (!_pf()) return null;
+    const { error } = await _pf().from('student_grades').delete()
+      .eq('student_id', studentId).eq('semester', semester);
+    if (error) throw error;
+  },
+  // คืน { semester → {gpa, math, biology, ...} } จาก rows ใน DB
+  groupBySemester(rows) {
+    const m = {};
+    (rows || []).forEach(r => {
+      if (!m[r.semester]) m[r.semester] = {};
+      m[r.semester][r.subject] = Number(r.grade);
+    });
+    return m;
+  },
+  // คืน { subject → ค่าเฉลี่ย }
+  averagesBySubject(rows) {
+    const buckets = {};
+    (rows || []).forEach(r => {
+      if (r.grade == null) return;
+      (buckets[r.subject] = buckets[r.subject] || []).push(Number(r.grade));
+    });
+    const avg = {};
+    Object.entries(buckets).forEach(([sub, arr]) => {
+      avg[sub] = arr.length ? arr.reduce((a,b)=>a+b,0) / arr.length : null;
+    });
+    return avg;
+  },
+};
+
 const PfRubrics = {
   async list() {
     if (!_pf()) return [];
@@ -244,4 +301,4 @@ async function applyRubricOverrides() {
   } catch (e) { /* ignore */ }
 }
 
-Object.assign(window, { PfUsers, PfEvidence, PfEvaluations, PfInternship, PfRubrics, applyRubricOverrides, computeMyLevels });
+Object.assign(window, { PfUsers, PfEvidence, PfEvaluations, PfInternship, PfRubrics, PfGrades, applyRubricOverrides, computeMyLevels });

@@ -87,6 +87,32 @@ CREATE TRIGGER trg_guard_role
 -- ── 5) ตรวจรายชื่อผู้ใช้ + บทบาทปัจจุบัน ──
 -- SELECT email, name, role, student_code, grade FROM public.users ORDER BY role, email;
 
+-- ── 6.8) ตารางเกรดของนักเรียน ──
+-- subject: 'gpa' = เกรดเฉลี่ยรวมของเทอม / 'math'/'biology'/'chemistry'/'physics'/'astronomy'/'english'
+CREATE TABLE IF NOT EXISTS student_grades (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id  UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  semester    TEXT NOT NULL,            -- เช่น "1/2568"
+  subject     TEXT NOT NULL,            -- 'gpa' หรือชื่อวิชา (key)
+  grade       NUMERIC(3,2) CHECK (grade >= 0 AND grade <= 4),
+  updated_at  TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (student_id, semester, subject)
+);
+
+ALTER TABLE student_grades ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "grades_select" ON student_grades;
+CREATE POLICY "grades_select" ON student_grades FOR SELECT
+  USING (student_id = auth.uid() OR current_user_role() IN ('teacher','admin'));
+
+DROP POLICY IF EXISTS "grades_self_write" ON student_grades;
+CREATE POLICY "grades_self_write" ON student_grades FOR ALL
+  USING (student_id = auth.uid());
+
+DROP POLICY IF EXISTS "grades_admin_write" ON student_grades;
+CREATE POLICY "grades_admin_write" ON student_grades FOR ALL
+  USING (current_user_role() = 'admin');
+
 -- ── 6.7) Trigger อัปเดต taken + status ของสถานที่ฝึกงานอัตโนมัติ ──
 -- เมื่อมีนักเรียนสมัคร/ถูกปฏิเสธ/ลบใบสมัคร → คำนวณใหม่ทันที
 -- นับเฉพาะใบสมัครสถานะ pending/approved (rejected ไม่เอามานับ)
