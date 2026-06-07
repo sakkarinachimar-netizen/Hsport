@@ -346,26 +346,107 @@ function TeacherInternship({ toast }) {
 
 /* ---------- Admin: Internship management ---------- */
 function AdminInternship({ toast }) {
+  const backend = !!(window.PfInternship && window.PF_SUPABASE_READY);
   const [tab, setTab] = React.useState("sites");
-  const [sites, setSites] = React.useState(INTERNSHIP_SITES);
+  const [sites, setSites] = React.useState([]);
+  const [loading, setLoading] = React.useState(backend);
   const [periods, setPeriods] = React.useState(INTERNSHIP_PERIODS);
   const [siteForm, setSiteForm] = React.useState(null);
   const [periodForm, setPeriodForm] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
 
-  const newSite = () => setSiteForm({ id:"", name:"", dept:"", area:"", field:"การแพทย์", cap:3, taken:0, desc:"", skills:[], tag:"hospital", status:"open" });
+  // DB row → form/display shape (snake_case → camelCase)
+  const mapSite = (r) => ({
+    id: r.id, name: r.name, dept: r.dept || "", area: r.area || "",
+    field: r.field || "การแพทย์", cap: r.cap || 0, taken: r.taken || 0,
+    desc: r.descr || "", skills: r.skills || [], tag: r.tag || "hospital",
+    status: r.status || "open",
+    startDate: r.start_date || "", endDate: r.end_date || "",
+    hoursPerDay: r.hours_per_day != null ? r.hours_per_day : null,
+  });
+
+  const loadSites = React.useCallback(async () => {
+    if (!backend) { setSites([]); setLoading(false); return; }
+    setLoading(true);
+    try {
+      const rows = await window.PfInternship.sites();
+      setSites((rows || []).map(mapSite));
+    } catch (e) { toast("โหลดสถานที่ไม่สำเร็จ: " + (e.message||e)); }
+    finally { setLoading(false); }
+  }, [backend, toast]);
+  React.useEffect(() => { loadSites(); }, [loadSites]);
+
+  const newSite = () => setSiteForm({
+    id:"", name:"", dept:"", area:"", field:"การแพทย์", cap:3, taken:0,
+    desc:"", skills:[], tag:"hospital", status:"open",
+    startDate:"", endDate:"", hoursPerDay:null,
+  });
   const editSite = (s) => setSiteForm({ ...s });
-  const saveSite = () => {
+
+  const saveSite = async () => {
     if (!siteForm.name) { toast("กรุณากรอกชื่อสถานที่"); return; }
-    setSites(list => {
-      const existing = list.find(x => x.id === siteForm.id);
-      if (existing) return list.map(x => x.id === siteForm.id ? siteForm : x);
-      return [{ ...siteForm, id: "s" + (list.length + 100) }, ...list];
-    });
-    setSiteForm(null);
-    toast("บันทึกสถานที่ฝึกงานเรียบร้อย");
+    if (!backend) {
+      // โหมดสาธิต
+      setSites(list => {
+        const existing = list.find(x => x.id === siteForm.id);
+        if (existing) return list.map(x => x.id === siteForm.id ? siteForm : x);
+        return [{ ...siteForm, id: "s" + Date.now() }, ...list];
+      });
+      setSiteForm(null);
+      toast("บันทึกสถานที่ฝึกงานเรียบร้อย");
+      return;
+    }
+    setBusy(true);
+    try {
+      const dbRow = {
+        id: siteForm.id || "s" + Date.now(),
+        name: siteForm.name, dept: siteForm.dept || null,
+        area: siteForm.area || null, field: siteForm.field || null,
+        cap: siteForm.cap || 0, taken: siteForm.taken || 0,
+        descr: siteForm.desc || null, skills: siteForm.skills || [],
+        tag: siteForm.tag, status: siteForm.status,
+        start_date: siteForm.startDate || null, end_date: siteForm.endDate || null,
+        hours_per_day: siteForm.hoursPerDay || null,
+      };
+      await window.PfInternship.saveSite(dbRow);
+      setSiteForm(null);
+      toast("บันทึกสถานที่ฝึกงานเรียบร้อย");
+      await loadSites();
+    } catch (e) { toast("บันทึกไม่สำเร็จ: " + (e.message||e)); }
+    finally { setBusy(false); }
   };
-  const removeSite = (id) => { setSites(s => s.filter(x => x.id !== id)); toast("ลบสถานที่แล้ว"); };
-  const toggleSite = (id) => setSites(s => s.map(x => x.id === id ? { ...x, status: x.status === "open" ? "closed" : "open" } : x));
+
+  const removeSite = async (id) => {
+    if (!confirm("ลบสถานที่ฝึกงานนี้?")) return;
+    if (!backend) {
+      setSites(s => s.filter(x => x.id !== id));
+      toast("ลบสถานที่แล้ว");
+      return;
+    }
+    try {
+      await window.PfInternship.deleteSite(id);
+      toast("ลบสถานที่แล้ว");
+      await loadSites();
+    } catch (e) { toast("ลบไม่สำเร็จ: " + (e.message||e)); }
+  };
+
+  const toggleSite = async (id) => {
+    const site = sites.find(s => s.id === id);
+    if (!site) return;
+    const newStatus = site.status === "open" ? "closed" : "open";
+    setSites(s => s.map(x => x.id === id ? { ...x, status: newStatus } : x));
+    if (backend) {
+      try {
+        await window.PfInternship.saveSite({
+          id, name: site.name, dept: site.dept, area: site.area, field: site.field,
+          cap: site.cap, taken: site.taken, descr: site.desc, skills: site.skills,
+          tag: site.tag, status: newStatus,
+          start_date: site.startDate || null, end_date: site.endDate || null,
+          hours_per_day: site.hoursPerDay || null,
+        });
+      } catch (e) { toast("เปลี่ยนสถานะไม่สำเร็จ: " + (e.message||e)); await loadSites(); }
+    }
+  };
 
   const newPeriod = () => setPeriodForm({ id:"", name:"", label:"", start:"", end:"", weeks:2, timeStart:"09:00", timeEnd:"16:00", days:"จ.–ศ.", hoursPerDay:7, open:true });
   const editPeriod = (p) => setPeriodForm({ ...p });
@@ -402,9 +483,13 @@ function AdminInternship({ toast }) {
       {tab === "sites" && (
         <div className="card" style={{padding:0, overflow:"hidden"}}>
           <table className="table">
-            <thead><tr><th>สถานที่</th><th>สังกัด/แผนก</th><th>พื้นที่</th><th>สายงาน</th><th>ที่นั่ง</th><th>สถานะ</th><th></th></tr></thead>
+            <thead><tr><th>สถานที่</th><th>สังกัด/แผนก</th><th>พื้นที่</th><th>ช่วงเวลา</th><th>ที่นั่ง</th><th>สถานะ</th><th className="text-right">การจัดการ</th></tr></thead>
             <tbody>
-              {sites.map(s => (
+              {loading ? (
+                <tr><td colSpan={7} className="muted" style={{padding:20,textAlign:"center"}}>กำลังโหลด…</td></tr>
+              ) : sites.length === 0 ? (
+                <tr><td colSpan={7} className="muted" style={{padding:30,textAlign:"center"}}>ยังไม่มีสถานที่ฝึกงาน — กด "+ เพิ่มสถานที่"</td></tr>
+              ) : sites.map(s => (
                 <tr key={s.id}>
                   <td>
                     <div className="row gap-2"><Pill kind={INTERNSHIP_TAG_COLORS[s.tag]}>{INTERNSHIP_TAG_LABELS[s.tag]}</Pill>
@@ -412,10 +497,14 @@ function AdminInternship({ toast }) {
                   </td>
                   <td>{s.dept}</td>
                   <td>{s.area}</td>
-                  <td>{s.field}</td>
+                  <td className="mono small">
+                    {s.startDate && s.endDate
+                      ? <>{s.startDate}<br/>↓ <span className="muted">{s.endDate}</span>{s.hoursPerDay ? <div className="muted">{s.hoursPerDay} ชม./วัน</div> : null}</>
+                      : <span className="muted">—</span>}
+                  </td>
                   <td>
                     <div className="row gap-2"><span className="mono">{s.taken}/{s.cap}</span>
-                      <div className="meter" style={{width:80}}><span style={{width:(s.taken/s.cap*100)+"%"}}></span></div>
+                      <div className="meter" style={{width:80}}><span style={{width:(s.cap?s.taken/s.cap*100:0)+"%"}}></span></div>
                     </div>
                   </td>
                   <td>{s.status === "open" ? <Pill kind="green">เปิดรับ</Pill> : s.status === "full" ? <Pill kind="red">เต็ม</Pill> : <Pill kind="gray">ปิด</Pill>}</td>
@@ -423,7 +512,7 @@ function AdminInternship({ toast }) {
                     <div className="row gap-2" style={{justifyContent:"flex-end"}}>
                       <button className="btn btn-ghost btn-sm" onClick={()=>toggleSite(s.id)}>{s.status==="open"?"ปิด":"เปิด"}</button>
                       <button className="btn btn-ghost btn-sm" onClick={()=>editSite(s)}>แก้ไข</button>
-                      <button className="btn btn-ghost btn-sm" onClick={()=>removeSite(s.id)}>ลบ</button>
+                      <button className="btn btn-ghost btn-sm" onClick={()=>removeSite(s.id)} style={{color:"#dc2626"}}>ลบ</button>
                     </div>
                   </td>
                 </tr>
@@ -495,7 +584,7 @@ function AdminInternship({ toast }) {
         <Modal title={siteForm.id ? "แก้ไขสถานที่ฝึกงาน" : "เพิ่มสถานที่ฝึกงาน"} onClose={()=>setSiteForm(null)} width={680}
           footer={<>
             <button className="btn btn-ghost" onClick={()=>setSiteForm(null)}>ยกเลิก</button>
-            <button className="btn btn-primary" onClick={saveSite}>บันทึก</button>
+            <button className="btn btn-primary" onClick={saveSite} disabled={busy}>{busy?"กำลังบันทึก…":"บันทึก"}</button>
           </>}>
           <div className="row gap-4">
             <div className="field" style={{flex:2}}>
@@ -536,6 +625,27 @@ function AdminInternship({ toast }) {
           <div className="field">
             <label>รายละเอียดงานฝึก</label>
             <textarea className="textarea" value={siteForm.desc} onChange={e=>setSiteForm(f=>({...f, desc:e.target.value}))} placeholder="อธิบายว่านักเรียนจะได้เรียนรู้/ปฏิบัติอะไร"/>
+          </div>
+
+          <div style={{fontWeight:600, marginBottom:6, marginTop:10}}>📅 ช่วงเวลาฝึกงาน</div>
+          <div className="row gap-4">
+            <div className="field" style={{flex:1}}>
+              <label>วันเริ่มต้น</label>
+              <input className="input" type="date" value={siteForm.startDate || ""}
+                onChange={e=>setSiteForm(f=>({...f, startDate: e.target.value}))}/>
+            </div>
+            <div className="field" style={{flex:1}}>
+              <label>วันสิ้นสุด</label>
+              <input className="input" type="date" value={siteForm.endDate || ""}
+                onChange={e=>setSiteForm(f=>({...f, endDate: e.target.value}))}/>
+            </div>
+            <div className="field" style={{flex:1}}>
+              <label>ชั่วโมง/วัน</label>
+              <input className="input" type="number" min="1" max="24" step="0.5"
+                value={siteForm.hoursPerDay || ""}
+                onChange={e=>setSiteForm(f=>({...f, hoursPerDay: e.target.value ? +e.target.value : null}))}
+                placeholder="เช่น 8"/>
+            </div>
           </div>
         </Modal>
       )}

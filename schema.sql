@@ -83,6 +83,9 @@ CREATE TABLE IF NOT EXISTS internship_sites (
   skills    TEXT[] DEFAULT '{}',
   tag       TEXT CHECK (tag IN ('hospital','lab','gov')),
   status    TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','full','closed')),
+  start_date    DATE,
+  end_date      DATE,
+  hours_per_day NUMERIC(3,1),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

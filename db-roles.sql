@@ -87,6 +87,12 @@ CREATE TRIGGER trg_guard_role
 -- ── 5) ตรวจรายชื่อผู้ใช้ + บทบาทปัจจุบัน ──
 -- SELECT email, name, role, student_code, grade FROM public.users ORDER BY role, email;
 
+-- ── 6.5) เพิ่มฟิลด์วันที่ + ชั่วโมง/วัน ให้สถานที่ฝึกงาน ──
+ALTER TABLE internship_sites
+  ADD COLUMN IF NOT EXISTS start_date    DATE,
+  ADD COLUMN IF NOT EXISTS end_date      DATE,
+  ADD COLUMN IF NOT EXISTS hours_per_day NUMERIC(3,1);
+
 -- ── 6) Assign teacher ให้ evidence + RLS ใหม่ ──
 -- นักเรียนเลือกอาจารย์ตอนส่งหลักฐาน → อาจารย์เห็นเฉพาะที่ถูกมอบหมายให้ตน
 ALTER TABLE evidence_items
