@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>คู่มือการใช้งาน — PDSHS e-Portfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --primary: #2f6bff;
+    --primary-soft: #eef3ff;
+    --ink: #0f172a;
+    --ink-2: #334155;
+    --ink-3: #64748b;
+    --line: #e2e8f0;
+    --line-2: #f1f5f9;
+    --bg: #f8fafc;
+    --bg-card: #ffffff;
+    --green: #10b981;
+    --amber: #f59e0b;
+    --pink: #ec4899;
+    --purple: #8b5cf6;
+    --red: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+    font-family: 'IBM Plex Sans Thai', ui-sans-serif, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; line-height: 1.7; font-size: 16px;
+  }
+  .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.9em; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 32px 24px 80px; }
+  .hero { background: linear-gradient(135deg, #2f6bff, #06b6d4); color: #fff;
+    padding: 40px 32px; border-radius: 18px; margin-bottom: 28px;
+    box-shadow: 0 10px 30px rgba(47,107,255,.15);
+  }
+  .hero h1 { margin: 0 0 6px; font-size: 28px; font-weight: 700; }
+  .hero p { margin: 0; opacity: .92; font-size: 15px; }
+  .hero a { color: #fff; text-decoration: underline; opacity: .95; }
+  nav.toc { background: var(--bg-card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 18px 22px; margin-bottom: 28px;
+  }
+  nav.toc h3 { margin: 0 0 8px; font-size: 14px; color: var(--ink-3);
+    text-transform: uppercase; letter-spacing: .5px; font-weight: 600;
+  }
+  nav.toc ol { margin: 0; padding-left: 22px; }
+  nav.toc li { padding: 4px 0; }
+  nav.toc a { color: var(--ink-2); text-decoration: none; }
+  nav.toc a:hover { color: var(--primary); }
+  section { background: var(--bg-card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 26px 28px; margin-bottom: 22px;
+  }
+  section h2 { margin: 0 0 6px; font-size: 22px; color: var(--ink); font-weight: 700;
+    display: flex; align-items: center; gap: 10px;
+  }
+  section h2 .num { display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 8px; background: var(--primary-soft);
+    color: var(--primary); font-size: 15px; font-weight: 700;
+  }
+  section > .sub { color: var(--ink-3); margin: 0 0 18px; font-size: 14px; }
+  section h3 { margin: 24px 0 8px; font-size: 17px; font-weight: 600; color: var(--ink); }
+  section p, section li { font-size: 15px; color: var(--ink-2); }
+  ul, ol { padding-left: 22px; }
+  ul li, ol li { margin: 4px 0; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; vertical-align: middle;
+  }
+  .pill-blue { background: #dbeafe; color: #1d4ed8; }
+  .pill-green { background: #dcfce7; color: #15803d; }
+  .pill-pink { background: #fce7f3; color: #be185d; }
+  .pill-purple { background: #ede9fe; color: #6d28d9; }
+  .pill-amber { background: #fef3c7; color: #b45309; }
+  .pill-red { background: #fee2e2; color: #b91c1c; }
+  .tip { background: var(--primary-soft); border-left: 4px solid var(--primary);
+    padding: 12px 16px; border-radius: 0 10px 10px 0; margin: 14px 0; font-size: 14.5px;
+  }
+  .tip b { color: var(--primary); }
+  .warn { background: #fff7ed; border-left: 4px solid var(--amber);
+    padding: 12px 16px; border-radius: 0 10px 10px 0; margin: 14px 0; font-size: 14.5px;
+  }
+  .warn b { color: #b45309; }
+  .step { background: var(--line-2); border-radius: 10px; padding: 14px 18px;
+    margin: 10px 0; display: flex; gap: 14px; align-items: flex-start;
+  }
+  .step .n { background: var(--primary); color: #fff; min-width: 26px; height: 26px;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; flex-shrink: 0;
+  }
+  .step .b { flex: 1; }
+  .step .b strong { display: block; margin-bottom: 2px; font-size: 14.5px; }
+  .step .b div { color: var(--ink-3); font-size: 13.5px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  th { background: var(--line-2); font-weight: 600; color: var(--ink); font-size: 13.5px; }
+  code { background: var(--line-2); padding: 2px 6px; border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace; font-size: 0.88em; color: var(--ink);
+  }
+  .role-card { display: flex; gap: 18px; padding: 18px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+    margin: 12px 0; align-items: flex-start;
+  }
+  .role-card .ico { font-size: 32px; }
+  .role-card h4 { margin: 0 0 6px; font-size: 16px; }
+  .role-card p { margin: 0; color: var(--ink-3); font-size: 14px; }
+  .back-top { display: inline-block; margin-top: 10px; font-size: 13px;
+    color: var(--ink-3); text-decoration: none;
+  }
+  .back-top:hover { color: var(--primary); }
+  footer { text-align: center; padding: 30px 16px 20px; color: var(--ink-3); font-size: 12px; }
+  footer b { color: var(--ink-2); }
+  a.btn-home { display: inline-block; padding: 8px 16px; background: var(--primary);
+    color: #fff; border-radius: 8px; text-decoration: none; font-weight: 600;
+    font-size: 14px; margin-top: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+  <h1>📘 คู่มือการใช้งาน</h1>
+  <p>PDSHS e-Portfolio — แฟ้มสะสมผลงาน วิชาเอกวิทยาศาสตร์สุขภาพ<br/>โรงเรียนสาธิตมหาวิทยาลัยศรีนครินทรวิโรฒ ปทุมวัน</p>
+  <a class="btn-home" href="/">← กลับไปหน้าเข้าสู่ระบบ</a>
+</div>
+
+<nav class="toc">
+  <h3>สารบัญ</h3>
+  <ol>
+    <li><a href="#about">เกี่ยวกับระบบ</a></li>
+    <li><a href="#login">การเข้าสู่ระบบ + เปลี่ยนรหัสผ่าน</a></li>
+    <li><a href="#student">สำหรับนักเรียน <span class="pill pill-blue">นักเรียน</span></a></li>
+    <li><a href="#teacher">สำหรับอาจารย์ <span class="pill pill-green">อาจารย์ผู้ประเมิน</span></a></li>
+    <li><a href="#admin">สำหรับผู้ดูแลระบบ <span class="pill pill-pink">แอดมิน</span></a></li>
+    <li><a href="#faq">คำถามที่พบบ่อย</a></li>
+  </ol>
+</nav>
+
+<section id="about">
+  <h2><span class="num">1</span> เกี่ยวกับระบบ</h2>
+  <p class="sub">PDSHS e-Portfolio คืออะไร?</p>
+
+  <p>เป็นระบบ <b>แฟ้มสะสมผลงานออนไลน์</b> สำหรับนักเรียนวิชาเอกวิทยาศาสตร์สุขภาพ ใช้บันทึก พัฒนาการของผู้เรียนตามสมรรถนะ 10 ด้านตามหลักสูตร <b>"วิชาเอกวิทยาศาสตร์สุขภาพ พ.ศ. 2568"</b></p>
+
+  <h3>ระบบรองรับ 3 บทบาท</h3>
+  <div class="role-card">
+    <span class="ico">👩‍🎓</span>
+    <div><h4>นักเรียน</h4><p>อัปโหลดหลักฐานการเรียนรู้ ติดตามคะแนนสมรรถนะ บันทึกเกรด/ผลสอบภาษาอังกฤษ ลงทะเบียนกิจกรรม/ฝึกงาน</p></div>
+  </div>
+  <div class="role-card">
+    <span class="ico">👨‍🏫</span>
+    <div><h4>อาจารย์ผู้ประเมิน</h4><p>ตรวจประเมินหลักฐานของนักเรียน ดูภาพรวมสมรรถนะของนักเรียนแต่ละคน อนุมัติคำขอฝึกงาน สร้างกิจกรรม</p></div>
+  </div>
+  <div class="role-card">
+    <span class="ico">🛡️</span>
+    <div><h4>ผู้ดูแลระบบ</h4><p>จัดการบัญชีผู้ใช้ทุกบทบาท จัดการสถานที่ฝึกงาน รูบริกสมรรถนะ และกิจกรรม</p></div>
+  </div>
+
+  <h3>สมรรถนะที่ระบบติดตาม</h3>
+  <ul>
+    <li><b>สมรรถนะหลัก 6 ข้อ:</b> การจัดการตนเอง · การคิดขั้นสูง · การสื่อสาร · การรวมพลังทำงานเป็นทีม · การเป็นพลเมืองที่เข้มแข็ง · การอยู่ร่วมกับธรรมชาติและวิทยาการอย่างยั่งยืน</li>
+    <li><b>สมรรถนะเฉพาะวิชาเอก 4 ข้อ:</b> ใฝ่รู้และการสืบเสาะ · การเข้าอกเข้าใจผู้อื่น · จริยธรรมและความรับผิดชอบ · ยืดหยุ่นและปรับตัวได้</li>
+    <li><b>เกณฑ์การประเมิน 5 ระดับ:</b> L1 เริ่มต้น · L2 กำลังพัฒนา · L3 ใช้ได้ดี · L4 ดีมาก · L5 เชี่ยวชาญ</li>
+  </ul>
+</section>
+
+<section id="login">
+  <h2><span class="num">2</span> การเข้าสู่ระบบ + เปลี่ยนรหัสผ่าน</h2>
+  <p class="sub">ทุกบทบาทล็อกอินด้วยอีเมล + รหัสผ่าน</p>
+
+  <h3>เข้าสู่ระบบครั้งแรก</h3>
+  <div class="step"><div class="n">1</div><div class="b"><strong>รับอีเมลและรหัสผ่านเริ่มต้น</strong><div>จากผู้ดูแลระบบของโรงเรียน</div></div></div>
+  <div class="step"><div class="n">2</div><div class="b"><strong>เปิดเว็บแล้วกรอกอีเมล + รหัสผ่าน</strong><div>กดปุ่ม "เข้าสู่ระบบ" ระบบจะพาไปยังหน้าที่ตรงกับบทบาทอัตโนมัติ</div></div></div>
+  <div class="step"><div class="n">3</div><div class="b"><strong>เปลี่ยนรหัสผ่านครั้งแรก (แนะนำ)</strong><div>ไปที่เมนู "โปรไฟล์" → การ์ด "🔑 เปลี่ยนรหัสผ่าน" → กรอกรหัสใหม่ 2 ครั้ง → บันทึก</div></div></div>
+
+  <h3>ลืมรหัสผ่าน</h3>
+  <p>ที่หน้า login กด <b>"ลืมรหัสผ่าน?"</b> → กรอกอีเมล → ระบบส่งลิงก์รีเซ็ตไปทางอีเมล → กดลิงก์ในเมล → ตั้งรหัสใหม่</p>
+  <div class="warn"><b>หมายเหตุ:</b> การส่งเมลรีเซ็ตมีจำกัดต่อชั่วโมง — ถ้าลืมรหัสผ่านบ่อย ติดต่อแอดมินให้รีเซ็ตให้ในหน้าจัดการผู้ใช้</div>
+</section>
+
+<section id="student">
+  <h2><span class="num">3</span> สำหรับนักเรียน <span class="pill pill-blue">นักเรียน</span></h2>
+  <p class="sub">การใช้งานเมนูต่าง ๆ ในมุมมองของนักเรียน</p>
+
+  <h3>🏠 หน้าแรก</h3>
+  <ul>
+    <li>แสดง <b>สรุประดับสมรรถนะของฉัน</b> ทั้ง 10 ด้าน (คำนวณจากการประเมินจริงโดยอาจารย์)</li>
+    <li>กราฟ Radar ภาพรวมสมรรถนะ</li>
+    <li><b>ผลการเรียน (ค่าเฉลี่ย)</b> — GPA เฉลี่ยรวม + เกรดเฉลี่ยรายวิชา 6 วิชา</li>
+    <li><b>คะแนนสอบภาษาอังกฤษ</b> — IELTS / TOEFL / CUTEP คะแนนล่าสุด</li>
+    <li>ปุ่ม "เพิ่มหลักฐานใหม่" และ "ดูคำแนะนำเพื่อพัฒนา"</li>
+  </ul>
+
+  <h3>📁 แฟ้มสะสมผลงาน</h3>
+  <p>ดูหลักฐานทั้งหมดที่อัปโหลด พร้อมสถานะ (รอตรวจ / ผ่าน / ต้องปรับปรุง)</p>
+  <ul>
+    <li>กด <b>"ดูรายละเอียด"</b> เพื่อดูข้อมูลครบ + preview ลิงก์ Drive + ความเห็นจากอาจารย์</li>
+    <li>กด <b>"ลบ"</b> เพื่อลบหลักฐาน (ลบของตัวเองได้)</li>
+  </ul>
+  <div class="tip"><b>แก้ไขหลักฐาน:</b> ระบบไม่อนุญาตแก้ไขหลังจากส่งแล้ว — ถ้าต้องแก้ ให้ลบอันเดิมแล้วอัปโหลดใหม่</div>
+
+  <h3>⬆️ อัปโหลดหลักฐาน</h3>
+  <div class="step"><div class="n">1</div><div class="b"><strong>กรอกข้อมูล</strong><div>ชื่อชิ้นงาน, วันที่, คำอธิบายสั้น ๆ</div></div></div>
+  <div class="step"><div class="n">2</div><div class="b"><strong>เลือกสมรรถนะที่เกี่ยวข้อง</strong><div>เลือกได้หลายข้อ ทั้งสมรรถนะหลักและเฉพาะวิชาเอก</div></div></div>
+  <div class="step"><div class="n">3</div><div class="b"><strong>แนบลิงก์ Google Drive / Docs / Slides / Sheets</strong><div>วางลิงก์ → ระบบดึง preview อัตโนมัติ • <b>ตั้งสิทธิ์เป็น "ทุกคนที่มีลิงก์เปิดดูได้"</b></div></div></div>
+  <div class="step"><div class="n">4</div><div class="b"><strong>เลือกอาจารย์ผู้ประเมิน *</strong><div>เลือกจาก dropdown — หลักฐานจะปรากฏใน "รายการที่ต้องตรวจ" ของอาจารย์ที่เลือก</div></div></div>
+  <div class="step"><div class="n">5</div><div class="b"><strong>กดส่งหลักฐาน</strong><div>สถานะเริ่มต้น = "รอตรวจ"</div></div></div>
+
+  <h3>📚 รูบริกสมรรถนะ</h3>
+  <p>ดูรายละเอียดเกณฑ์การประเมินของทั้ง 10 สมรรถนะ — แต่ละสมรรถนะมีรูบริก 5 ระดับชัดเจน</p>
+  <ul>
+    <li>แท็บ <b>"สมรรถนะเฉพาะวิชาเอก"</b> มี 4 หัวข้อ × 5 ระดับ + เครื่องมือ/ชิ้นงานที่ใช้ประเมิน</li>
+    <li>แท็บ <b>"สมรรถนะหลัก"</b> มี 6 หัวข้อ + คำอธิบาย</li>
+  </ul>
+
+  <h3>📅 กิจกรรม</h3>
+  <ul>
+    <li><b>ปฏิทินกิจกรรม</b> — สีในวันแสดงประเภทกิจกรรม</li>
+    <li><b>กิจกรรมที่กำลังจะมาถึง</b> — กด <b>"ลงทะเบียน"</b> เพื่อเข้าร่วม</li>
+    <li>ลงทะเบียนแล้วจะมี Pill ✓ แสดง พร้อมปุ่ม "ยกเลิก" ได้</li>
+  </ul>
+
+  <h3>🩺 ฝึกงาน</h3>
+  <ul>
+    <li>แท็บ <b>"ค้นหาสถานที่"</b> — ดูสถานที่ฝึกที่หลักสูตรประสานไว้ พร้อมวันที่ + ชั่วโมง/วัน + ที่นั่งคงเหลือ</li>
+    <li>กด <b>"เลือกสมัคร"</b> → ยืนยัน → สถานะ "รออนุมัติ" → อาจารย์อนุมัติ → "ได้รับอนุมัติ"</li>
+    <li>แท็บ <b>"คำขอของฉัน"</b> — ติดตามสถานะคำขอ</li>
+  </ul>
+
+  <h3>👤 โปรไฟล์</h3>
+  <ul>
+    <li><b>📚 เกรดของฉัน</b> — กด "+ เพิ่ม/แก้ไขเทอม" → กรอก GPA และเกรดรายวิชา 6 วิชา → บันทึก</li>
+    <li><b>🎓 คะแนนสอบภาษาอังกฤษ</b> — กด "+ เพิ่มผลสอบ" → เลือกประเภท (IELTS/TOEFL/CUTEP) + วันสอบ + คะแนน</li>
+    <li><b>🔑 เปลี่ยนรหัสผ่าน</b> — กรอกรหัสใหม่ 2 ครั้ง → บันทึก</li>
+  </ul>
+  <a href="#" class="back-top">↑ กลับสารบัญ</a>
+</section>
+
+<section id="teacher">
+  <h2><span class="num">4</span> สำหรับอาจารย์ <span class="pill pill-green">อาจารย์ผู้ประเมิน</span></h2>
+  <p class="sub">การใช้งานเมนูต่าง ๆ ในมุมมองของอาจารย์</p>
+
+  <h3>📝 รายการที่ต้องตรวจ</h3>
+  <p>แสดงเฉพาะหลักฐานที่นักเรียนเลือกส่งมาให้คุณตรวจ (สถานะ "รอตรวจ")</p>
+  <div class="step"><div class="n">1</div><div class="b"><strong>กด "ตรวจประเมิน" ของหลักฐานที่ต้องการ</strong></div></div>
+  <div class="step"><div class="n">2</div><div class="b"><strong>คลิกดูลิงก์ Drive ที่นักเรียนแนบ</strong></div></div>
+  <div class="step"><div class="n">3</div><div class="b"><strong>กดคะแนนระดับ 1–5 ของแต่ละสมรรถนะที่นักเรียนเลือก</strong></div></div>
+  <div class="step"><div class="n">4</div><div class="b"><strong>เลื่อน slider คะแนนรวม + เขียนความเห็น</strong></div></div>
+  <div class="step"><div class="n">5</div><div class="b"><strong>เลือกสถานะ ผ่าน / ต้องปรับปรุง / ไม่ผ่าน → บันทึก</strong><div>ระบบจะนำหลักฐานออกจากคิว + แจ้งสถานะนักเรียน</div></div></div>
+
+  <h3>👥 นักเรียนในระบบ</h3>
+  <p>รายชื่อนักเรียนทุกคน + ปุ่ม <b>"ดูภาพรวมสมรรถนะ"</b> ที่จะแสดง modal ครบทุกข้อมูล:</p>
+  <ul>
+    <li>ระดับสมรรถนะแต่ละด้าน (ProgressBar + Radar chart)</li>
+    <li>📚 ผลการเรียน (GPA + เกรดรายวิชา + ตารางทุกเทอม)</li>
+    <li>🎓 คะแนนสอบภาษาอังกฤษ (IELTS/TOEFL/CUTEP)</li>
+  </ul>
+
+  <h3>📚 รูบริกสมรรถนะ</h3>
+  <p>ดูเกณฑ์ประเมินรายละเอียดของทั้ง 10 สมรรถนะ (เนื้อหาเดียวกับฝั่งนักเรียน) ใช้อ้างอิงตอนตรวจ</p>
+
+  <h3>📅 จัดการกิจกรรม</h3>
+  <ul>
+    <li>กด <b>"+ สร้างกิจกรรม"</b> → กรอกชื่อ/รายละเอียด/ประเภท/วันเวลา/สถานที่/จำนวนรับ</li>
+    <li>กิจกรรมจะปรากฏในปฏิทินของนักเรียนทันที</li>
+    <li>คลิก "แก้ไข" เพื่อปรับปรุง หรือลบกิจกรรม</li>
+  </ul>
+
+  <h3>🩺 ฝึกงาน</h3>
+  <p>เห็นคำขอฝึกงานทั้งหมดของนักเรียน (รออนุมัติ / กำลังฝึก / เสร็จสิ้น)</p>
+  <ul>
+    <li>คำขอที่ "รออนุมัติ" → กดปุ่ม <b>อนุมัติ</b> หรือ <b>ปฏิเสธ</b></li>
+    <li>เห็นว่านักเรียนคนไหนสมัครที่ไหน วันที่เท่าไร</li>
+  </ul>
+
+  <a href="#" class="back-top">↑ กลับสารบัญ</a>
+</section>
+
+<section id="admin">
+  <h2><span class="num">5</span> สำหรับผู้ดูแลระบบ <span class="pill pill-pink">แอดมิน</span></h2>
+  <p class="sub">การจัดการระบบทั้งหมด</p>
+
+  <h3>👥 จัดการผู้ใช้</h3>
+  <p><b>เพิ่มผู้ใช้ทีละคน:</b></p>
+  <div class="step"><div class="n">1</div><div class="b"><strong>กด "+ เพิ่มผู้ใช้"</strong></div></div>
+  <div class="step"><div class="n">2</div><div class="b"><strong>กรอก อีเมล / รหัสผ่าน / ชื่อ-นามสกุล / บทบาท (นักเรียน/อาจารย์/แอดมิน)</strong></div></div>
+  <div class="step"><div class="n">3</div><div class="b"><strong>ถ้าเป็นนักเรียน ใส่ "รหัสนักเรียน" + "ชั้น" เพิ่ม</strong></div></div>
+  <div class="step"><div class="n">4</div><div class="b"><strong>กด "สร้างบัญชี" → ผู้ใช้ล็อกอินได้ทันที</strong></div></div>
+
+  <p><b>นำเข้าหลายคนพร้อมกัน (CSV):</b></p>
+  <ul>
+    <li>กด <b>⬇ Template</b> ดาวน์โหลดไฟล์ตัวอย่าง</li>
+    <li>เปิด Excel → กรอกข้อมูลตามคอลัมน์: email, password, name, role, student_code, grade</li>
+    <li>กด <b>⬆ นำเข้า CSV</b> เลือกไฟล์ → ระบบสร้างผู้ใช้ทีเดียวทั้งหมด</li>
+  </ul>
+
+  <p><b>แก้ไข / ลบผู้ใช้:</b></p>
+  <ul>
+    <li><b>เปลี่ยน role</b> — ใช้ dropdown ในตาราง (เปลี่ยนทันที)</li>
+    <li><b>แก้ไข</b> — แก้ชื่อ/รหัสนักเรียน/ชั้น</li>
+    <li><b>ลบ</b> — ลบทั้ง auth + ข้อมูลทั้งหมด (CASCADE)</li>
+  </ul>
+
+  <div class="warn"><b>หมายเหตุ:</b> ไม่สามารถลบ/เปลี่ยน role บัญชีตัวเองได้ (กันล็อกตัวเองออก)</div>
+
+  <h3>🎯 จัดการรูบริก</h3>
+  <p>แอดมินแก้ไขเกณฑ์ประเมินสมรรถนะได้ทุกข้อ (ทับค่าเริ่มต้นจากหลักสูตร)</p>
+  <ul>
+    <li>กด <b>"ดู / แก้ไข"</b> ของสมรรถนะที่ต้องการ → modal เปิดให้แก้:
+      <ul>
+        <li>ชื่อย่อ / ชื่อเต็ม / คำอธิบาย</li>
+        <li>สำหรับสมรรถนะเฉพาะ: หัวข้อย่อย + พฤติกรรมบ่งชี้ 5 ระดับ + เครื่องมือประเมิน</li>
+      </ul>
+    </li>
+    <li>กด <b>"กลับค่าเริ่มต้น"</b> ถ้าต้องการลบ override</li>
+    <li><b>"⬇ ส่งออก JSON"</b> ดาวน์โหลดรูบริกฉบับสมบูรณ์</li>
+  </ul>
+
+  <h3>📅 จัดการกิจกรรม</h3>
+  <p>เหมือนกับฝั่งอาจารย์ — สร้าง/แก้/ลบกิจกรรม</p>
+
+  <h3>🩺 จัดการฝึกงาน</h3>
+  <p><b>สถานที่ฝึกงาน</b>:</p>
+  <ul>
+    <li>กด <b>"+ เพิ่มสถานที่"</b> → กรอก ชื่อ/แผนก/พื้นที่/สายงาน/จำนวนรับ/รายละเอียด</li>
+    <li>กรอก <b>ช่วงเวลาฝึกงาน</b>: วันเริ่ม-สิ้นสุด + ชั่วโมง/วัน</li>
+    <li>ปุ่ม "ปิด" → ปิดรับสมัครชั่วคราว (ข้อมูลคงอยู่)</li>
+    <li>ปุ่ม "ลบ" → ลบสถานที่ทั้งหมด (คำขอที่ผูกอยู่จะถูกลบตาม)</li>
+  </ul>
+  <p><b>คำขอของนักเรียน</b>: แอดมินอนุมัติ/ปฏิเสธคำขอได้เหมือนอาจารย์</p>
+  <div class="tip"><b>auto-update ที่นั่ง:</b> เมื่อนักเรียนสมัครหรือถูกปฏิเสธ ระบบจะอัปเดตจำนวน <code>taken</code> และเปลี่ยน status เป็น "เต็ม" อัตโนมัติเมื่อถึง cap</div>
+
+  <a href="#" class="back-top">↑ กลับสารบัญ</a>
+</section>
+
+<section id="faq">
+  <h2><span class="num">6</span> คำถามที่พบบ่อย (FAQ)</h2>
+
+  <h3>Q: ลืมรหัสผ่าน ใช้ "ลืมรหัสผ่าน?" แล้วเมลไม่มา</h3>
+  <p>A: ระบบมีโควต้าส่งเมลต่อชั่วโมง ถ้าหมดจะส่งไม่ได้ — แจ้งแอดมินรีเซ็ตรหัสในหน้า "จัดการผู้ใช้" ให้ใช้รหัสเริ่มต้นใหม่ก่อน แล้วเข้าระบบไปเปลี่ยนเองในโปรไฟล์</p>
+
+  <h3>Q: อัปโหลดหลักฐานแล้วลิงก์ Drive แสดงไม่ขึ้น preview</h3>
+  <p>A: ต้องตั้งสิทธิ์ Google Drive เป็น <b>"ทุกคนที่มีลิงก์เปิดดูได้"</b> (Anyone with link) ก่อนใช้</p>
+
+  <h3>Q: นักเรียนส่งหลักฐานแล้ว แต่ฉันมองไม่เห็นในหน้าตรวจ</h3>
+  <p>A: เพราะนักเรียนต้องเลือกอาจารย์ผู้ตรวจตอนส่ง — ถ้าเขาเลือกอาจารย์คนอื่น คุณจะไม่เห็น (เห็นเฉพาะที่ส่งให้คุณตรวจ)</p>
+
+  <h3>Q: ทำไมระบบขึ้นรายการกิจกรรม/ฝึกงานเป็น 0 ทั้งที่อาจารย์/แอดมินสร้างไว้</h3>
+  <p>A: ลอง refresh เว็บ 1 ครั้ง — บางครั้ง Supabase แคชชั่วคราว</p>
+
+  <h3>Q: ต้องการลบสถานที่ฝึกงานที่มีนักเรียนสมัครอยู่</h3>
+  <p>A: ระบบจะลบคำขอของนักเรียนทั้งหมดที่ผูกอยู่ด้วย (ถาวร) — ถ้าไม่ต้องการลบคำขอ ให้กด <b>"ปิด"</b> แทน (status = closed) คำขอเดิมจะอยู่ครบ แค่ปิดรับสมัครใหม่</p>
+
+  <h3>Q: คะแนนสมรรถนะของฉันยังเป็น 0/5 ทุกข้อ</h3>
+  <p>A: ระบบคำนวณคะแนนจาก <b>"การประเมินจริงโดยอาจารย์"</b> — เมื่ออาจารย์ตรวจหลักฐานและให้คะแนนแล้ว คะแนนจะปรากฏในหน้าแรกอัตโนมัติ</p>
+
+</section>
+
+</div>
+
+<footer>
+  พัฒนาและปรับปรุงระบบโดย <b>Ballyaceae</b>
+</footer>
+
+</body>
+</html>

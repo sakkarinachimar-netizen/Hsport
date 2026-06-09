@@ -284,7 +284,9 @@ function CreditFooter() {
       padding:"24px 16px 28px", textAlign:"center",
       color:"var(--ink-3, #94a3b8)", fontSize:12, lineHeight:1.6,
     }}>
-      พัฒนาและปรับปรุงระบบโดย <b style={{color:"var(--ink-2, #64748b)"}}>Ballyaceae</b>
+      <a href="manual.html" target="_blank" rel="noopener" style={{color:"var(--primary, #2f6bff)", textDecoration:"none", marginRight:12}}>📘 คู่มือการใช้งาน</a>
+      <span style={{opacity:.5}}>·</span>
+      <span style={{marginLeft:12}}>พัฒนาและปรับปรุงระบบโดย <b style={{color:"var(--ink-2, #64748b)"}}>Ballyaceae</b></span>
     </footer>
   );
 }
