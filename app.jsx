@@ -121,6 +121,9 @@ function Login({ onLogin }) {
               {hasBackend
                 ? <a href="#" onClick={e=>{e.preventDefault(); setView("forgot"); setErr("");}}>ลืมรหัสผ่าน?</a>
                 : <a href="#" onClick={e=>e.preventDefault()}>ลืมรหัสผ่าน / ติดต่อผู้ดูแลระบบ</a>}
+              <div style={{marginTop:8}}>
+                <a href="manual.html" target="_blank" rel="noopener">📘 คู่มือการใช้งาน</a>
+              </div>
             </div>
 
             <div className="login-hint">
@@ -284,9 +287,7 @@ function CreditFooter() {
       padding:"24px 16px 28px", textAlign:"center",
       color:"var(--ink-3, #94a3b8)", fontSize:12, lineHeight:1.6,
     }}>
-      <a href="manual.html" target="_blank" rel="noopener" style={{color:"var(--primary, #2f6bff)", textDecoration:"none", marginRight:12}}>📘 คู่มือการใช้งาน</a>
-      <span style={{opacity:.5}}>·</span>
-      <span style={{marginLeft:12}}>พัฒนาและปรับปรุงระบบโดย <b style={{color:"var(--ink-2, #64748b)"}}>Ballyaceae</b></span>
+      พัฒนาและปรับปรุงระบบโดย <b style={{color:"var(--ink-2, #64748b)"}}>Ballyaceae</b>
     </footer>
   );
 }
