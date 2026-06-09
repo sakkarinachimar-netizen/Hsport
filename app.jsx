@@ -231,9 +231,9 @@ function App() {
     return () => { alive = false; };
   }, []);
 
-  if (recovery) return <><SetPasswordScreen onDone={()=>{ setRecovery(false); window.location.href = window.location.origin + window.location.pathname; }}/>{ToastNode}</>;
+  if (recovery) return <><SetPasswordScreen onDone={()=>{ setRecovery(false); window.location.href = window.location.origin + window.location.pathname; }}/><CreditFooter/>{ToastNode}</>;
   if (booting) return null;
-  if (!role) return <><Login onLogin={login}/>{ToastNode}</>;
+  if (!role) return <><Login onLogin={login}/><CreditFooter/>{ToastNode}</>;
 
   const nav =
     role === "student" ? STUDENT_NAV :
@@ -272,8 +272,20 @@ function App() {
     <div className="app-shell">
       <Topbar role={role} current={page} onNavigate={setPage} onLogout={logout} items={nav}/>
       {view}
+      <CreditFooter/>
       {ToastNode}
     </div>
+  );
+}
+
+function CreditFooter() {
+  return (
+    <footer style={{
+      padding:"24px 16px 28px", textAlign:"center",
+      color:"var(--ink-3, #94a3b8)", fontSize:12, lineHeight:1.6,
+    }}>
+      พัฒนาและปรับปรุงระบบโดย <b style={{color:"var(--ink-2, #64748b)"}}>Ballyaceae</b>
+    </footer>
   );
 }
 
