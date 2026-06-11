@@ -7,6 +7,7 @@ const STUDENT_NAV = [
   { key: "rubrics", label: "รูบริกสมรรถนะ" },
   { key: "activities", label: "กิจกรรม" },
   { key: "internship", label: "ฝึกงาน" },
+  { key: "tcas1", label: "TCAS 1" },
   { key: "profile", label: "โปรไฟล์" },
 ];
 
@@ -41,6 +42,7 @@ const ACTIVITIES = [];
 function StudentHome({ go, toast }) {
   const [levels, setLevels] = React.useState({});
   const [gradeAvg, setGradeAvg] = React.useState({});
+  const [gradeRows, setGradeRows] = React.useState([]);  // ใช้คำนวณ TCAS
   const [englishLatest, setEnglishLatest] = React.useState({}); // { type → {score, date} ล่าสุด }
   React.useEffect(() => {
     if (!window.pfCurrentUser) return;
@@ -50,7 +52,9 @@ function StudentHome({ go, toast }) {
     }
     if (window.PfGrades) {
       window.PfGrades.listByStudent(window.pfCurrentUser.id).then(rows => {
-        if (alive) setGradeAvg(window.PfGrades.averagesBySubject(rows));
+        if (!alive) return;
+        setGradeRows(rows || []);
+        setGradeAvg(window.PfGrades.averagesBySubject(rows));
       }).catch(()=>{});
     }
     if (window.PfEnglishExams) {
@@ -107,6 +111,46 @@ function StudentHome({ go, toast }) {
               </div>
             );
           })}
+
+          {window.TCAS1_REQUIREMENTS && (() => {
+            const scores = window.computeTcasScores(gradeRows);
+            const passList = window.TCAS1_REQUIREMENTS
+              .map(r => ({ req: r, eval: window.checkTcasEligibility(r, scores) }))
+              .filter(x => x.eval.allPass);
+            return (
+              <div style={{marginTop:24, paddingTop:18, borderTop:"1px dashed var(--line)"}}>
+                <div className="row-between" style={{marginBottom:6}}>
+                  <h3 style={{margin:0}}>🎯 สรุปการผ่านเกณฑ์ TCAS 1</h3>
+                  <button className="btn btn-ghost btn-sm" onClick={()=>go("tcas1")}>ดูทั้งหมด →</button>
+                </div>
+                <div className="muted small" style={{marginBottom:10}}>* พิจารณาจากเกณฑ์<b>คะแนนเฉลี่ยเท่านั้น</b> (ไม่นับ IELTS / เงื่อนไขเพิ่มเติม)</div>
+                {gradeRows.length === 0 ? (
+                  <div className="muted small" style={{padding:14, background:"var(--bg-soft)", borderRadius:8}}>
+                    ยังไม่มีข้อมูลเกรด — ไปบันทึกที่ <a href="#" onClick={e=>{e.preventDefault(); go("profile");}}>หน้าโปรไฟล์</a> ก่อน
+                  </div>
+                ) : passList.length === 0 ? (
+                  <div className="muted small" style={{padding:14, background:"#fff7ed", borderRadius:8, color:"#b45309"}}>
+                    ยังไม่ผ่านเกณฑ์มหาวิทยาลัยใด ๆ ตามคะแนนเฉลี่ยปัจจุบัน
+                  </div>
+                ) : (
+                  <>
+                    <div className="small" style={{marginBottom:6, color:"#15803d"}}>✅ ผ่านเกณฑ์ <b>{passList.length}</b> สถาบัน</div>
+                    <div style={{display:"flex", flexDirection:"column", gap:6}}>
+                      {passList.map(x => (
+                        <div key={x.req.id} className="row-between" style={{padding:"8px 12px", background:"#dcfce7", borderRadius:8}}>
+                          <div>
+                            <div style={{fontWeight:600, fontSize:13.5}}>{x.req.university}</div>
+                            <div className="muted small">คณะ{x.req.faculty}</div>
+                          </div>
+                          <span className="mono small" style={{color:"#15803d"}}>✓</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         <div>
@@ -1127,7 +1171,82 @@ function StudentProfile({ toast, onLogout }) {
   );
 }
 
+/* ---------- TCAS 1 — เกณฑ์การยื่นแฟ้มสะสมผลงาน ---------- */
+function StudentTCAS({ toast }) {
+  const reqs = window.TCAS1_REQUIREMENTS || [];
+  // จัดกลุ่มตามคณะ
+  const byFac = {};
+  reqs.forEach(r => { (byFac[r.faculty] = byFac[r.faculty] || []).push(r); });
+
+  const fmt = (v) => v == null ? "ไม่กำหนด" : v.toFixed(2);
+
+  return (
+    <div className="page">
+      <h2 style={{fontSize:22}}>TCAS รอบ 1 — Portfolio</h2>
+      <div className="muted small">เกณฑ์ขั้นต่ำของแต่ละมหาวิทยาลัยสำหรับยื่นแฟ้มสะสมผลงาน (อ้างอิงตัวอย่าง TCAS69)</div>
+
+      <div className="privacy mt-4">
+        <div className="h">📌 หมายเหตุ</div>
+        <div className="mt-2 small">
+          ข้อมูลนี้เป็น<b>ตัวอย่าง</b>เพื่อใช้อ้างอิง — เกณฑ์จริงอาจเปลี่ยนตามประกาศของแต่ละมหาวิทยาลัยและแต่ละปี
+          โปรดตรวจสอบกับเว็บไซต์ของมหาวิทยาลัยอีกครั้งก่อนสมัครจริง
+        </div>
+      </div>
+
+      {Object.entries(byFac).map(([fac, list]) => (
+        <div key={fac} className="card mt-4" style={{padding:0, overflow:"hidden"}}>
+          <div style={{padding:"14px 18px", background:"var(--bg-soft)", borderBottom:"1px solid var(--line)"}}>
+            <h3 style={{margin:0}}>คณะ{fac} <span className="muted small">({list.length} สถาบัน)</span></h3>
+          </div>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>มหาวิทยาลัย</th>
+                <th className="small">IELTS</th>
+                <th className="small">GPAX</th>
+                <th className="small">ชีววิทยา</th>
+                <th className="small">เคมี</th>
+                <th className="small">ฟิสิกส์</th>
+                <th className="small">คณิต</th>
+                <th className="small">อังกฤษ</th>
+                <th className="small">หมายเหตุ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map(r => {
+                const orCol = (a, b) => r.physics_or_math != null
+                  ? <span className="muted small">เลือกอย่างหนึ่ง</span>
+                  : (a != null ? <b className="mono">{fmt(a)}</b> : <span className="muted">—</span>);
+                return (
+                  <tr key={r.id}>
+                    <td><b>{r.university}</b></td>
+                    <td className="mono small">≥ {r.ielts.toFixed(1)}</td>
+                    <td className="mono"><b>{fmt(r.gpax)}</b></td>
+                    <td className="mono small">{r.science_avg != null ? <span className="muted">เฉลี่ยวิทย์ ≥ {fmt(r.science_avg)}</span> : fmt(r.biology)}</td>
+                    <td className="mono small">{r.science_avg != null ? <span className="muted">↑</span> : fmt(r.chemistry)}</td>
+                    <td className="mono small">
+                      {r.science_avg != null ? <span className="muted">↑</span> :
+                       r.physics_or_math != null ? <b>≥ {fmt(r.physics_or_math)}*</b> : fmt(r.physics)}
+                    </td>
+                    <td className="mono small">
+                      {r.physics_or_math != null ? <b>≥ {fmt(r.physics_or_math)}*</b> : fmt(r.math)}
+                    </td>
+                    <td className="mono small">{fmt(r.english)}</td>
+                    <td className="small">{r.note || "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ))}
+
+      <div className="muted small mt-3" style={{textAlign:"center"}}>* "เลือกอย่างหนึ่ง" หมายถึงต้องผ่านเกณฑ์ของฟิสิกส์หรือคณิตอย่างน้อย 1 วิชา</div>
+    </div>
+  );
+}
+
 window.STUDENT_NAV = STUDENT_NAV;
 Object.assign(window, {
-  StudentHome, StudentPortfolio, StudentUpload, StudentRubrics, StudentActivities, StudentProfile,
+  StudentHome, StudentPortfolio, StudentUpload, StudentRubrics, StudentActivities, StudentProfile, StudentTCAS,
 });

@@ -250,6 +250,7 @@ function App() {
     else if (page === "rubrics")    view = <StudentRubrics/>;
     else if (page === "activities") view = <StudentActivities toast={toastMsg}/>;
     else if (page === "internship") view = <StudentInternship toast={toastMsg}/>;
+    else if (page === "tcas1")      view = <StudentTCAS toast={toastMsg}/>;
     else if (page === "profile")    view = <StudentProfile toast={toastMsg} onLogout={logout}/>;
   } else if (role === "teacher") {
     if      (page === "t-home")     view = <TeacherHome go={setPage}/>;

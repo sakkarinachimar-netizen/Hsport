@@ -288,9 +288,115 @@ const COURSES = [
     targets: { inquiry:5, empath:null, ethics:null, resil:5 } },
 ];
 
+/* ---------- TCAS 1 (Portfolio) — เกณฑ์คณะแพทย์ / ทันตแพทย์ ----------
+   อ้างอิงตัวอย่าง Requirement TCAS69 รอบ 1 Portfolio
+   โดย อ.ณัฐพงษ์ ภูมั่น (เกณฑ์อาจเปลี่ยนตามประกาศของแต่ละ ม. แต่ละปี)
+   ฟิลด์ที่เป็น null = "ไม่กำหนด"
+*/
+const TCAS1_REQUIREMENTS = [
+  // ---- คณะแพทยศาสตร์ ----
+  { id:"cu-med", faculty:"แพทยศาสตร์", university:"จุฬาลงกรณ์มหาวิทยาลัย",
+    ielts:7.0, gpax:3.50, note:"เกรดรายวิชา: ไม่กำหนด" },
+
+  { id:"mu-rama-med", faculty:"แพทยศาสตร์", university:"มหาวิทยาลัยมหิดล (รพ.รามาธิบดี)",
+    ielts:6.5, gpax:3.50, biology:3.50, chemistry:3.50, physics_or_math:3.50,
+    note:"เลือกยื่นฟิสิกส์ หรือ คณิต ≥ 3.50" },
+
+  { id:"mu-siriraj-med", faculty:"แพทยศาสตร์", university:"มหาวิทยาลัยมหิดล (ศิริราชพยาบาล)",
+    ielts:7.0, gpax:3.50, biology:3.50, chemistry:3.50, physics_or_math:3.50,
+    note:"เลือกยื่นฟิสิกส์ หรือ คณิต ≥ 3.50" },
+
+  { id:"tu-med", faculty:"แพทยศาสตร์", university:"มหาวิทยาลัยธรรมศาสตร์",
+    ielts:6.5, gpax:3.00, science_avg:3.50, math:3.50, english:3.50,
+    note:"เฉลี่ยวิชาวิทย์ (ชีว/เคมี/ฟิสิกส์) ≥ 3.50" },
+
+  { id:"ku-med", faculty:"แพทยศาสตร์", university:"มหาวิทยาลัยเกษตรศาสตร์",
+    ielts:6.5, gpax:3.50, science_avg:3.50, math:3.50, english:3.50,
+    note:"เฉลี่ยวิชาวิทย์ ≥ 3.50 • ภาษาไทย+สังคม ≥ 3.00 (ระบบไม่ตรวจ)" },
+
+  { id:"cmu-med", faculty:"แพทยศาสตร์", university:"มหาวิทยาลัยเชียงใหม่",
+    ielts:6.5, gpax:3.50, biology:3.50, chemistry:3.50, english:3.50 },
+
+  { id:"pccms", faculty:"วิทยาลัยแพทยศาสตร์",
+    university:"ศรีสวางควัฒน ราชวิทยาลัยจุฬาภรณ์",
+    ielts:5.5, gpax:3.50, biology:3.50, chemistry:3.50, physics_or_math:3.50,
+    note:"เลือกยื่นฟิสิกส์ หรือ คณิต ≥ 3.50" },
+
+  // ---- คณะทันตแพทยศาสตร์ ----
+  { id:"cu-dent", faculty:"ทันตแพทยศาสตร์", university:"จุฬาลงกรณ์มหาวิทยาลัย",
+    ielts:7.5, gpax:3.75, biology:4.00, chemistry:3.00, physics:3.00, english:3.00 },
+
+  { id:"mu-dent", faculty:"ทันตแพทยศาสตร์", university:"มหาวิทยาลัยมหิดล",
+    ielts:5.0, gpax:3.50, biology:3.50, chemistry:3.50, physics_or_math:3.50,
+    note:"เลือกยื่นฟิสิกส์ หรือ คณิต ≥ 3.50" },
+
+  { id:"swu-dent", faculty:"ทันตแพทยศาสตร์", university:"มหาวิทยาลัยศรีนครินทรวิโรฒ",
+    ielts:6.0, gpax:3.75, biology:3.50, chemistry:3.50 },
+
+  { id:"cmu-dent", faculty:"ทันตแพทยศาสตร์", university:"มหาวิทยาลัยเชียงใหม่",
+    ielts:6.5, gpax:3.75, note:"เกรดรายวิชา: ไม่กำหนด" },
+
+  { id:"buu-dent", faculty:"ทันตแพทยศาสตร์", university:"มหาวิทยาลัยบูรพา",
+    ielts:6.5, gpax:3.50, note:"เกรดรายวิชา: ไม่กำหนด" },
+];
+
+// คำนวณคะแนนเฉลี่ยที่ใช้เช็คเกณฑ์ TCAS จาก rows ของ student_grades
+// คืน { gpax, biology, chemistry, physics, math, english, scienceAvg }
+function computeTcasScores(gradeRows) {
+  const avgFor = (subjects) => {
+    const vals = [];
+    (gradeRows || []).forEach(r => {
+      if (subjects.includes(r.subject) && r.grade != null) vals.push(Number(r.grade));
+    });
+    return vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : null;
+  };
+  const gpax       = avgFor(["gpa"]);
+  const biology    = avgFor(["biology"]);
+  const chemistry  = avgFor(["chemistry"]);
+  const physics    = avgFor(["physics_astro","physics"]);
+  // ใช้ค่าเฉลี่ยรวมของพื้นฐาน + เพิ่มเติม (รับวิชาเก่า "math"/"english" ด้วย)
+  const math       = avgFor(["math_basic","math_extra","math"]);
+  const english    = avgFor(["english_basic","english_extra","english"]);
+  // เฉลี่ยวิทย์ = เฉลี่ยจาก biology + chemistry + physics
+  const sciVals = [biology, chemistry, physics].filter(v => v != null);
+  const scienceAvg = sciVals.length ? sciVals.reduce((a,b)=>a+b,0) / sciVals.length : null;
+  return { gpax, biology, chemistry, physics, math, english, scienceAvg };
+}
+
+// เช็คว่านักเรียนผ่านเกณฑ์ของมหาวิทยาลัยหนึ่ง ๆ จากคะแนนเฉลี่ยเท่านั้น (ไม่นับ IELTS)
+function checkTcasEligibility(req, scores) {
+  const checks = [];
+  const test = (label, want, got) => {
+    if (want == null) return;
+    const passed = got != null && got >= want;
+    checks.push({ label, want, got, passed });
+  };
+  test("GPAX",        req.gpax,        scores.gpax);
+  test("ชีววิทยา",     req.biology,     scores.biology);
+  test("เคมี",         req.chemistry,   scores.chemistry);
+  test("ฟิสิกส์",       req.physics,     scores.physics);
+  test("คณิตศาสตร์",   req.math,        scores.math);
+  test("ภาษาอังกฤษ",   req.english,     scores.english);
+  test("เฉลี่ยวิทย์",   req.science_avg, scores.scienceAvg);
+  if (req.physics_or_math != null) {
+    const passPhys = scores.physics != null && scores.physics >= req.physics_or_math;
+    const passMath = scores.math    != null && scores.math    >= req.physics_or_math;
+    checks.push({
+      label: "ฟิสิกส์ หรือ คณิต", want: req.physics_or_math,
+      got: passPhys ? scores.physics : passMath ? scores.math : (scores.physics ?? scores.math),
+      passed: passPhys || passMath,
+    });
+  }
+  const allPass = checks.length > 0 && checks.every(c => c.passed);
+  return { allPass, checks };
+}
+
 Object.assign(window, {
   LEVEL_NAMES,
   CORE_COMPETENCIES,
   SPEC_COMPETENCIES,
   COURSES,
+  TCAS1_REQUIREMENTS,
+  computeTcasScores,
+  checkTcasEligibility,
 });
