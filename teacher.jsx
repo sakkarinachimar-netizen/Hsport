@@ -418,9 +418,9 @@ function TeacherStudents({ toast }) {
                       <div className="lbl">GPA เฉลี่ยรวม</div>
                     </div>
                     {(window.GRADE_SUBJECTS || []).map(s => (
-                      <div key={s.key} className="stat stat-green" style={{padding:"10px 12px"}}>
+                      <div key={s.key} className="stat stat-green" style={{padding:"10px 12px"}} title={s.label}>
                         <div className="num" style={{fontSize:16}}>{grades.avg[s.key] != null ? grades.avg[s.key].toFixed(2) : "—"}</div>
-                        <div className="lbl" style={{fontSize:11}}>{s.label}</div>
+                        <div className="lbl" style={{fontSize:11}}>{s.short || s.label}</div>
                       </div>
                     ))}
                   </div>
@@ -430,7 +430,7 @@ function TeacherStudents({ toast }) {
                     return (
                       <table className="table">
                         <thead>
-                          <tr><th>เทอม</th><th>GPA</th>{(window.GRADE_SUBJECTS||[]).map(s => <th key={s.key} className="small">{s.label}</th>)}</tr>
+                          <tr><th>เทอม</th><th>GPA</th>{(window.GRADE_SUBJECTS||[]).map(s => <th key={s.key} className="small" title={s.label}>{s.short || s.label}</th>)}</tr>
                         </thead>
                         <tbody>
                           {sems.map(sem => {

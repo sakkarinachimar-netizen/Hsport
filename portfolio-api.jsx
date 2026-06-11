@@ -180,16 +180,25 @@ const PfInternship = {
   },
 };
 
-// รายวิชาที่นักเรียนกรอกได้
+// รายวิชาที่นักเรียนกรอกได้ (จัดกลุ่มตามกลุ่มสาระ)
 const GRADE_SUBJECTS = [
-  { key: "math",      label: "คณิตศาสตร์" },
-  { key: "biology",   label: "ชีววิทยา" },
-  { key: "chemistry", label: "เคมี" },
-  { key: "physics",   label: "ฟิสิกส์" },
-  { key: "astronomy", label: "ดาราศาสตร์" },
-  { key: "english",   label: "ภาษาอังกฤษ" },
+  { key: "biology",       label: "ชีววิทยา",              short: "ชีววิทยา",     group: "วิทยาศาสตร์" },
+  { key: "chemistry",     label: "เคมี",                   short: "เคมี",         group: "วิทยาศาสตร์" },
+  { key: "physics_astro", label: "ฟิสิกส์และดาราศาสตร์",     short: "ฟิสิกส์/ดารา", group: "วิทยาศาสตร์" },
+  { key: "math_basic",    label: "คณิตศาสตร์พื้นฐาน",        short: "คณิต พื้นฐาน", group: "คณิตศาสตร์" },
+  { key: "math_extra",    label: "คณิตศาสตร์เพิ่มเติม",       short: "คณิต เพิ่มเติม", group: "คณิตศาสตร์" },
+  { key: "english_basic", label: "ภาษาอังกฤษพื้นฐาน",       short: "อังกฤษ พื้นฐาน", group: "ภาษาต่างประเทศ" },
+  { key: "english_extra", label: "ภาษาอังกฤษเพิ่มเติม",      short: "อังกฤษ เพิ่มเติม", group: "ภาษาต่างประเทศ" },
 ];
 window.GRADE_SUBJECTS = GRADE_SUBJECTS;
+
+// กลุ่มสาระ → รายวิชาในกลุ่ม (สำหรับ render UI แบบ group)
+const GRADE_SUBJECT_GROUPS = [
+  { name: "วิทยาศาสตร์",       keys: ["biology","chemistry","physics_astro"] },
+  { name: "คณิตศาสตร์",        keys: ["math_basic","math_extra"] },
+  { name: "ภาษาต่างประเทศ",     keys: ["english_basic","english_extra"] },
+];
+window.GRADE_SUBJECT_GROUPS = GRADE_SUBJECT_GROUPS;
 
 const PfGrades = {
   async listByStudent(studentId) {

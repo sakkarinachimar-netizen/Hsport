@@ -130,9 +130,9 @@ function StudentHome({ go, toast }) {
                   <div className="lbl">GPA เฉลี่ยรวม</div>
                 </div>
                 {(window.GRADE_SUBJECTS || []).map(s => (
-                  <div key={s.key} className="stat stat-green" style={{padding:"10px 12px"}}>
+                  <div key={s.key} className="stat stat-green" style={{padding:"10px 12px"}} title={s.label}>
                     <div className="num" style={{fontSize:18}}>{gradeAvg[s.key] != null ? gradeAvg[s.key].toFixed(2) : "—"}</div>
-                    <div className="lbl" style={{fontSize:11}}>{s.label}</div>
+                    <div className="lbl" style={{fontSize:11}}>{s.short || s.label}</div>
                   </div>
                 ))}
               </div>
@@ -836,7 +836,7 @@ function StudentGradesCard({ studentId, toast, refreshKey, onChange }) {
       ) : (
         <table className="table">
           <thead>
-            <tr><th>เทอม</th><th>GPA</th>{GRADE_SUBJECTS.map(s => <th key={s.key} className="small">{s.label}</th>)}<th></th></tr>
+            <tr><th>เทอม</th><th>GPA</th>{GRADE_SUBJECTS.map(s => <th key={s.key} className="small" title={s.label}>{s.short || s.label}</th>)}<th></th></tr>
           </thead>
           <tbody>
             {semesters.map(sem => {
@@ -878,17 +878,26 @@ function StudentGradesCard({ studentId, toast, refreshKey, onChange }) {
           </div>
           <div className="divider-h"></div>
           <div className="muted small" style={{marginBottom:6}}>เกรดรายวิชา (เว้นว่างได้)</div>
-          <div className="row gap-3" style={{flexWrap:"wrap"}}>
-            {GRADE_SUBJECTS.map(s => (
-              <div key={s.key} className="field" style={{flex:"1 1 45%"}}>
-                <label>{s.label}</label>
-                <input className="input mono" type="number" min="0" max="4" step="0.01"
-                  value={form.grades[s.key] || ""}
-                  onChange={e=>setForm(f=>({...f, grades:{...f.grades, [s.key]:e.target.value}}))}
-                  placeholder="0–4"/>
+          {(window.GRADE_SUBJECT_GROUPS || []).map(g => (
+            <div key={g.name} style={{marginBottom:12}}>
+              <div style={{fontWeight:600, fontSize:13.5, margin:"8px 0 4px"}}>📘 กลุ่มสาระ{g.name}</div>
+              <div className="row gap-3" style={{flexWrap:"wrap"}}>
+                {g.keys.map(k => {
+                  const s = GRADE_SUBJECTS.find(x => x.key === k);
+                  if (!s) return null;
+                  return (
+                    <div key={s.key} className="field" style={{flex:"1 1 30%"}}>
+                      <label>{s.label}</label>
+                      <input className="input mono" type="number" min="0" max="4" step="0.01"
+                        value={form.grades[s.key] || ""}
+                        onChange={e=>setForm(f=>({...f, grades:{...f.grades, [s.key]:e.target.value}}))}
+                        placeholder="0–4"/>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </Modal>
       )}
     </div>
