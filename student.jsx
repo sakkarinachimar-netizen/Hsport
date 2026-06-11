@@ -1022,9 +1022,33 @@ function StudentEnglishExamsCard({ studentId, toast }) {
 
 /* ---------- Profile ---------- */
 function StudentProfile({ toast, onLogout }) {
+  const backend = !!(window.PfUsers && window.PF_SUPABASE_READY && window.pfCurrentUser);
   const [u, setU] = React.useState(currentProfile());
+  const [busy, setBusy] = React.useState(false);
   const upd = (k, v) => setU(s => ({ ...s, [k]: v }));
-  const save = () => toast("บันทึกการเปลี่ยนแปลงเรียบร้อย");
+
+  const save = async () => {
+    if (!backend) { toast("บันทึกได้เมื่อเชื่อมฐานข้อมูลแล้ว"); return; }
+    if (!u.name.trim()) { toast("ชื่อห้ามว่าง"); return; }
+    setBusy(true);
+    try {
+      await window.PfUsers.update(window.pfCurrentUser.id, {
+        name: u.name.trim(),
+        student_code: u.studentId.trim() || null,
+        grade: u.classroom.trim() || null,
+        phone: u.phone.trim() || null,
+        advisor_name: u.advisor.trim() || null,
+      });
+      // อัปเดต pfCurrentUser ในหน่วยความจำให้ตรงกัน (ใช้กับหน้าอื่น)
+      Object.assign(window.pfCurrentUser, {
+        name: u.name.trim(), student_code: u.studentId.trim() || null,
+        grade: u.classroom.trim() || null, phone: u.phone.trim() || null,
+        advisor_name: u.advisor.trim() || null,
+      });
+      toast("บันทึกข้อมูลโปรไฟล์เรียบร้อย");
+    } catch (e) { toast("บันทึกไม่สำเร็จ: " + (e.message || e)); }
+    finally { setBusy(false); }
+  };
 
   return (
     <div className="page">
@@ -1032,30 +1056,34 @@ function StudentProfile({ toast, onLogout }) {
       <div className="profile-grid">
         <div className="card profile-card">
           <div className="avatar-lg">👩‍🎓</div>
-          <h2>{u.name}</h2>
+          <h2>{u.name || "—"}</h2>
           <div className="role">นักเรียนวิชาเอกวิทยาศาสตร์สุขภาพ</div>
 
           <div className="field mt-5" style={{textAlign:"left"}}>
+            <label>ชื่อ-นามสกุล</label>
+            <input className="input" value={u.name} onChange={e=>upd("name", e.target.value)} />
+          </div>
+          <div className="field" style={{textAlign:"left"}}>
             <label>รหัสนักเรียน</label>
-            <input className="input" value={u.studentId} onChange={e=>upd("studentId", e.target.value)} />
+            <input className="input mono" value={u.studentId} onChange={e=>upd("studentId", e.target.value)} placeholder="เช่น 65001234"/>
           </div>
           <div className="field" style={{textAlign:"left"}}>
             <label>ชั้น/ห้อง</label>
-            <input className="input" value={u.classroom} onChange={e=>upd("classroom", e.target.value)} />
+            <input className="input" value={u.classroom} onChange={e=>upd("classroom", e.target.value)} placeholder="เช่น ม.5/2"/>
           </div>
           <div className="field" style={{textAlign:"left"}}>
-            <label>อีเมล</label>
-            <input className="input" value={u.email} onChange={e=>upd("email", e.target.value)} />
+            <label>อีเมล <span className="muted small">(แก้ในระบบ Auth ไม่ได้ที่นี่)</span></label>
+            <input className="input" value={u.email} disabled style={{background:"var(--bg-soft, #f1f5f9)", cursor:"not-allowed"}}/>
           </div>
           <div className="field" style={{textAlign:"left"}}>
             <label>เบอร์โทรศัพท์</label>
-            <input className="input" value={u.phone} onChange={e=>upd("phone", e.target.value)} />
+            <input className="input" value={u.phone} onChange={e=>upd("phone", e.target.value)} placeholder="เช่น 081-234-5678"/>
           </div>
           <div className="field" style={{textAlign:"left"}}>
             <label>อาจารย์ที่ปรึกษา</label>
-            <input className="input" value={u.advisor} onChange={e=>upd("advisor", e.target.value)} />
+            <input className="input" value={u.advisor} onChange={e=>upd("advisor", e.target.value)} placeholder="ชื่ออาจารย์ที่ปรึกษา"/>
           </div>
-          <button className="btn btn-primary btn-block" onClick={save}>บันทึกการเปลี่ยนแปลง</button>
+          <button className="btn btn-primary btn-block" onClick={save} disabled={busy}>{busy?"กำลังบันทึก…":"บันทึกการเปลี่ยนแปลง"}</button>
           <button className="btn btn-danger btn-block mt-3" onClick={onLogout}>ออกจากระบบ</button>
         </div>
 
