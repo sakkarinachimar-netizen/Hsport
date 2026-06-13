@@ -2,6 +2,7 @@
 
 const STUDENT_NAV = [
   { key: "home", label: "หน้าแรก" },
+  { key: "assignments", label: "งานที่ได้รับ" },
   { key: "portfolio", label: "แฟ้มสะสมผลงาน" },
   { key: "upload", label: "อัปโหลดหลักฐาน" },
   { key: "rubrics", label: "รูบริกสมรรถนะ" },
@@ -398,10 +399,108 @@ function StudentPortfolio({ toast }) {
 }
 
 /* ---------- Upload ---------- */
-function StudentUpload({ toast, go }) {
+/* ---------- Assignments (งานที่ครูตั้งให้) ---------- */
+function StudentAssignments({ toast, go }) {
+  const backend = !!(window.PfAssignments && window.PF_SUPABASE_READY && window.pfCurrentUser);
+  const [list, setList] = React.useState([]);
+  const [loading, setLoading] = React.useState(backend);
+  const [myEvidence, setMyEvidence] = React.useState([]);
+
+  React.useEffect(() => {
+    if (!backend) { setLoading(false); return; }
+    (async () => {
+      try {
+        const [assignments, evidence] = await Promise.all([
+          window.PfAssignments.list(),
+          window.PfEvidence ? window.PfEvidence.listMine(window.pfCurrentUser.id) : Promise.resolve([]),
+        ]);
+        const myGrade = window.pfCurrentUser.grade || "";
+        const visible = (assignments || []).filter(a =>
+          a.status === "open" && (!a.target_grade || a.target_grade === myGrade)
+        );
+        setList(visible);
+        setMyEvidence(evidence || []);
+      } catch (e) { toast("โหลดข้อมูลไม่สำเร็จ: "+(e.message||e)); }
+      finally { setLoading(false); }
+    })();
+  }, [backend, toast]);
+
+  const submitted = (aId) => myEvidence.some(e => e.assignment_id === aId);
+  const submittedStatus = (aId) => {
+    const ev = myEvidence.find(e => e.assignment_id === aId);
+    return ev ? ev.status : null;
+  };
+
+  return (
+    <div className="page">
+      <div style={{marginBottom:18}}>
+        <h2 className="mb-0" style={{fontSize:22}}>งานที่ได้รับ</h2>
+        <div className="muted small">หัวข้อที่อาจารย์ตั้งให้ส่งหลักฐาน</div>
+      </div>
+
+      {loading ? (
+        <div className="card muted" style={{textAlign:"center",padding:40}}>กำลังโหลด…</div>
+      ) : list.length === 0 ? (
+        <div className="card" style={{textAlign:"center",padding:60}}>
+          <div style={{fontSize:36}}>📭</div>
+          <h3 className="mt-3">ยังไม่มีงานที่ได้รับ</h3>
+          <div className="muted">เมื่ออาจารย์ตั้งหัวข้อให้ จะแสดงที่นี่</div>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          {list.map(a => {
+            const done = submitted(a.id);
+            const st = submittedStatus(a.id);
+            const overdue = a.due_date && new Date(a.due_date) < new Date();
+            return (
+              <div className="card" key={a.id} style={{padding:18}}>
+                <div className="row-between" style={{flexWrap:"wrap",gap:8}}>
+                  <div style={{flex:1,minWidth:200}}>
+                    <div className="row gap-2" style={{alignItems:"center"}}>
+                      <h3 style={{margin:0}}>{a.title}</h3>
+                      {done ? (
+                        st==="approved" ? <Pill kind="green">ผ่านแล้ว</Pill>
+                        : st==="revise" ? <Pill kind="purple">ต้องปรับปรุง</Pill>
+                        : <Pill kind="amber">ส่งแล้ว · รอตรวจ</Pill>
+                      ) : overdue ? <Pill kind="red">เลยกำหนด</Pill> : <Pill kind="blue">ยังไม่ส่ง</Pill>}
+                    </div>
+                    {a.description && <p className="muted small" style={{margin:"6px 0 0"}}>{a.description}</p>}
+                    <div className="muted small mt-2">
+                      <span>👨‍🏫 {a.teacher?.name||"—"}</span>
+                      {a.due_date && <span> · 📅 กำหนดส่ง {new Date(a.due_date).toLocaleDateString("th-TH")}</span>}
+                    </div>
+                    {(a.core_competencies||[]).length + (a.spec_competencies||[]).length > 0 && (
+                      <div className="tags mt-2">
+                        {(a.core_competencies||[]).map((c,i)=><Pill key={"c"+i} kind="blue">{c}</Pill>)}
+                        {(a.spec_competencies||[]).map((c,i)=><Pill key={"s"+i} kind="purple">{c}</Pill>)}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    {!done ? (
+                      <button className="btn btn-primary btn-sm" onClick={()=>go("upload",a)}>ส่งหลักฐาน</button>
+                    ) : st==="revise" ? (
+                      <button className="btn btn-purple btn-sm" onClick={()=>go("upload",a)}>ส่งใหม่</button>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StudentUpload({ toast, go, assignment }) {
   const [form, setForm] = React.useState({
-    title: "", date: "", desc: "",
-    core: [], spec: [], driveLinks: [], teacherId: "",
+    title: assignment ? assignment.title : "",
+    date: "", desc: "",
+    core: assignment ? (assignment.core_competencies||[]) : [],
+    spec: assignment ? (assignment.spec_competencies||[]) : [],
+    driveLinks: [],
+    teacherId: assignment ? (assignment.teacher_id||"") : "",
   });
   const [busy, setBusy] = React.useState(false);
   const [teachers, setTeachers] = React.useState([]);
@@ -437,6 +536,7 @@ function StudentUpload({ toast, go }) {
           core: form.core, spec: form.spec, reflection: form.desc,
           driveLinks: form.driveLinks.map(d => d.originalUrl || d),
           assignedTeacherId: form.teacherId || null,
+          assignmentId: assignment ? assignment.id : null,
         });
         toast("ส่งหลักฐานเรียบร้อย • สถานะ: รอตรวจ");
         setTimeout(()=>go("portfolio"), 700);
@@ -456,6 +556,13 @@ function StudentUpload({ toast, go }) {
   return (
     <div className="page">
       <h2 style={{fontSize:22}}>อัปโหลดหลักฐานใหม่</h2>
+      {assignment && (
+        <div className="card card-tight" style={{padding:"12px 16px",marginBottom:16,background:"var(--blue-1,#eff6ff)",borderLeft:"4px solid var(--primary)"}}>
+          <div className="small" style={{fontWeight:600}}>📋 ส่งตามหัวข้อ: {assignment.title}</div>
+          {assignment.description && <div className="muted small mt-1">{assignment.description}</div>}
+          {assignment.due_date && <div className="muted small mt-1">กำหนดส่ง: {new Date(assignment.due_date).toLocaleDateString("th-TH")}</div>}
+        </div>
+      )}
       <form className="card" onSubmit={submit}>
         <div className="field">
           <label>ชื่อชิ้นงาน/กิจกรรม *</label>

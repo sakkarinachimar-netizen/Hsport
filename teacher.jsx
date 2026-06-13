@@ -2,6 +2,7 @@
 
 const TEACHER_NAV = [
   { key: "t-home",    label: "หน้าแรก" },
+  { key: "t-assignments", label: "ตั้งหัวข้อ" },
   { key: "t-review",  label: "รายการที่ต้องตรวจ" },
   { key: "t-students",label: "นักเรียนในที่ปรึกษา" },
   { key: "t-rubrics", label: "รูบริกสมรรถนะ" },
@@ -43,6 +44,218 @@ function TeacherHome({ go }) {
         </div>
         <div className="muted" style={{padding:"30px 0",textAlign:"center"}}>ยังไม่มีหลักฐานที่รอการประเมิน</div>
       </div>
+    </div>
+  );
+}
+
+/* ---------- Assignments (ตั้งหัวข้อให้นักเรียนส่งหลักฐาน) ---------- */
+function TeacherAssignments({ toast }) {
+  const backend = !!(window.PfAssignments && window.PF_SUPABASE_READY && window.pfCurrentUser);
+  const [list, setList] = React.useState([]);
+  const [loading, setLoading] = React.useState(backend);
+  const [showForm, setShowForm] = React.useState(false);
+  const [editId, setEditId] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const [detail, setDetail] = React.useState(null);
+  const emptyForm = { title:"", description:"", dueDate:"", targetGrade:"", core:[], spec:[], status:"open" };
+  const [form, setForm] = React.useState(emptyForm);
+  const upd = (k,v) => setForm(f=>({...f,[k]:v}));
+  const toggle = (k,v) => setForm(f=>{ const s=new Set(f[k]); s.has(v)?s.delete(v):s.add(v); return {...f,[k]:[...s]}; });
+
+  const load = React.useCallback(async () => {
+    if (!backend) { setLoading(false); return; }
+    setLoading(true);
+    try {
+      const rows = await window.PfAssignments.listWithSubmissions();
+      setList(rows || []);
+    } catch (e) { toast("โหลดหัวข้อไม่สำเร็จ: "+(e.message||e)); }
+    finally { setLoading(false); }
+  }, [backend, toast]);
+  React.useEffect(() => { load(); }, [load]);
+
+  const openNew = () => { setEditId(null); setForm(emptyForm); setShowForm(true); };
+  const openEdit = (a) => {
+    setEditId(a.id);
+    setForm({
+      title: a.title, description: a.description||"",
+      dueDate: a.due_date||"", targetGrade: a.target_grade||"",
+      core: a.core_competencies||[], spec: a.spec_competencies||[],
+      status: a.status,
+    });
+    setShowForm(true);
+  };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!form.title) { toast("กรุณากรอกชื่อหัวข้อ"); return; }
+    if (!backend) { toast("ระบบออฟไลน์"); return; }
+    setBusy(true);
+    try {
+      await window.PfAssignments.save({
+        id: editId, teacherId: window.pfCurrentUser.id,
+        title: form.title, description: form.description,
+        dueDate: form.dueDate, targetGrade: form.targetGrade,
+        core: form.core, spec: form.spec, status: form.status,
+      });
+      toast(editId ? "บันทึกการแก้ไขเรียบร้อย" : "สร้างหัวข้อเรียบร้อย");
+      setShowForm(false); await load();
+    } catch (e2) { toast("บันทึกไม่สำเร็จ: "+(e2.message||e2)); }
+    finally { setBusy(false); }
+  };
+
+  const remove = async (a) => {
+    if (!confirm("ลบหัวข้อ \""+a.title+"\" จริงหรือ?")) return;
+    try { await window.PfAssignments.remove(a.id); toast("ลบหัวข้อแล้ว"); await load(); }
+    catch (e) { toast("ลบไม่สำเร็จ: "+(e.message||e)); }
+  };
+
+  const toggleStatus = async (a) => {
+    const next = a.status === "open" ? "closed" : "open";
+    try { await window.PfAssignments.setStatus(a.id, next); toast(next==="closed"?"ปิดรับแล้ว":"เปิดรับอีกครั้ง"); await load(); }
+    catch (e) { toast("เปลี่ยนสถานะไม่สำเร็จ: "+(e.message||e)); }
+  };
+
+  const coreOpts = (window.CORE_COMPETENCIES||[]).map(c=>c.full);
+  const specOpts = (window.SPEC_COMPETENCIES||[]).map(c=>c.full);
+
+  return (
+    <div className="page">
+      <div className="row-between" style={{marginBottom:18}}>
+        <div>
+          <h2 className="mb-0" style={{fontSize:22}}>ตั้งหัวข้อส่งหลักฐาน</h2>
+          <div className="muted small">สร้างหัวข้อเพื่อให้นักเรียนส่งหลักฐานตามที่กำหนด</div>
+        </div>
+        <button className="btn btn-primary" onClick={openNew}>+ สร้างหัวข้อใหม่</button>
+      </div>
+
+      {loading ? (
+        <div className="card muted" style={{textAlign:"center",padding:40}}>กำลังโหลด…</div>
+      ) : list.length === 0 ? (
+        <div className="card" style={{textAlign:"center",padding:60}}>
+          <div style={{fontSize:36}}>📋</div>
+          <h3 className="mt-3">ยังไม่มีหัวข้อ</h3>
+          <div className="muted">กดปุ่ม "สร้างหัวข้อใหม่" เพื่อเริ่มต้น</div>
+        </div>
+      ) : (
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
+          {list.map(a => {
+            const subs = (a.evidence_items||[]);
+            const pending = subs.filter(s=>s.status==="pending").length;
+            const approved = subs.filter(s=>s.status==="approved").length;
+            const isOpen = a.status === "open";
+            const overdue = a.due_date && new Date(a.due_date) < new Date() && isOpen;
+            return (
+              <div className="card" key={a.id} style={{padding:18}}>
+                <div className="row-between" style={{flexWrap:"wrap",gap:8}}>
+                  <div style={{flex:1,minWidth:200}}>
+                    <div className="row gap-2" style={{alignItems:"center"}}>
+                      <h3 style={{margin:0}}>{a.title}</h3>
+                      <Pill kind={isOpen?"green":"gray"}>{isOpen?"เปิดรับ":"ปิดแล้ว"}</Pill>
+                      {overdue && <Pill kind="red">เลยกำหนด</Pill>}
+                    </div>
+                    {a.description && <p className="muted small mt-2" style={{margin:"6px 0 0"}}>{a.description}</p>}
+                    <div className="muted small mt-2">
+                      {a.due_date && <span>📅 กำหนดส่ง {new Date(a.due_date).toLocaleDateString("th-TH")} · </span>}
+                      {a.target_grade && <span>🎓 {a.target_grade} · </span>}
+                      <span>📨 ส่งแล้ว {subs.length} คน</span>
+                      {pending > 0 && <span> · <b style={{color:"var(--amber-6)"}}>รอตรวจ {pending}</b></span>}
+                      {approved > 0 && <span> · <b style={{color:"var(--green-6)"}}>ผ่าน {approved}</b></span>}
+                    </div>
+                    {(a.core_competencies||[]).length + (a.spec_competencies||[]).length > 0 && (
+                      <div className="tags mt-2">
+                        {(a.core_competencies||[]).map((c,i)=><Pill key={"c"+i} kind="blue">{c}</Pill>)}
+                        {(a.spec_competencies||[]).map((c,i)=><Pill key={"s"+i} kind="purple">{c}</Pill>)}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {subs.length > 0 && <button className="btn btn-ghost btn-sm" onClick={()=>setDetail(a)}>ดูรายการส่ง</button>}
+                    <button className="btn btn-ghost btn-sm" onClick={()=>openEdit(a)}>แก้ไข</button>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>toggleStatus(a)}>{isOpen?"ปิดรับ":"เปิดรับ"}</button>
+                    <button className="btn btn-ghost btn-sm" style={{color:"var(--red-6)"}} onClick={()=>remove(a)}>ลบ</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showForm && (
+        <Modal title={editId?"แก้ไขหัวข้อ":"สร้างหัวข้อใหม่"} onClose={()=>setShowForm(false)} width={640}
+          footer={<>
+            <button className="btn btn-ghost" onClick={()=>setShowForm(false)}>ยกเลิก</button>
+            <button className="btn btn-primary" onClick={submit} disabled={busy}>{busy?"กำลังบันทึก…":"บันทึก"}</button>
+          </>}>
+          <form onSubmit={submit}>
+            <div className="field"><label>ชื่อหัวข้อ *</label>
+              <input className="input" placeholder="เช่น ส่งรายงานการทดลองครั้งที่ 3" value={form.title} onChange={e=>upd("title",e.target.value)}/></div>
+            <div className="field"><label>คำอธิบาย</label>
+              <textarea className="textarea" placeholder="รายละเอียดเพิ่มเติม สิ่งที่ต้องส่ง เกณฑ์" value={form.description} onChange={e=>upd("description",e.target.value)}/></div>
+            <div className="row gap-3">
+              <div className="field" style={{flex:1}}><label>กำหนดส่ง</label>
+                <input className="input" type="date" value={form.dueDate} onChange={e=>upd("dueDate",e.target.value)}/></div>
+              <div className="field" style={{flex:1}}><label>ส่งถึงชั้น</label>
+                <input className="input" placeholder="เช่น ม.5/2 (ว่าง=ทุกคน)" value={form.targetGrade} onChange={e=>upd("targetGrade",e.target.value)}/></div>
+            </div>
+            <div className="field">
+              <label>สมรรถนะที่เกี่ยวข้อง</label>
+              <div className="upload-grid">
+                <div>
+                  <div className="small" style={{fontWeight:600,marginBottom:6}}>สมรรถนะหลัก</div>
+                  {coreOpts.map(o=>(
+                    <label key={o} className="checkbox-row">
+                      <input type="checkbox" checked={form.core.includes(o)} onChange={()=>toggle("core",o)}/>
+                      <span>{o}</span>
+                    </label>
+                  ))}
+                </div>
+                <div>
+                  <div className="small" style={{fontWeight:600,marginBottom:6}}>สมรรถนะเฉพาะ</div>
+                  {specOpts.map(o=>(
+                    <label key={o} className="checkbox-row">
+                      <input type="checkbox" checked={form.spec.includes(o)} onChange={()=>toggle("spec",o)}/>
+                      <span>{o}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {detail && (
+        <Modal title={`รายการส่ง: ${detail.title}`} onClose={()=>setDetail(null)} width={700}
+          footer={<button className="btn btn-ghost" onClick={()=>setDetail(null)}>ปิด</button>}>
+          <div className="muted small" style={{marginBottom:12}}>
+            {detail.due_date && <span>กำหนดส่ง {new Date(detail.due_date).toLocaleDateString("th-TH")} · </span>}
+            ส่งแล้ว {(detail.evidence_items||[]).length} คน
+          </div>
+          {(detail.evidence_items||[]).length === 0 ? (
+            <div className="muted" style={{padding:30,textAlign:"center"}}>ยังไม่มีนักเรียนส่ง</div>
+          ) : (
+            <table className="table">
+              <thead><tr><th>นักเรียน</th><th>รหัส</th><th>ชั้น</th><th>วันที่ส่ง</th><th>สถานะ</th></tr></thead>
+              <tbody>
+                {(detail.evidence_items||[]).map(ev=>(
+                  <tr key={ev.id}>
+                    <td><b>{ev.student?.name||"—"}</b></td>
+                    <td className="mono small">{ev.student?.student_code||"—"}</td>
+                    <td>{ev.student?.grade||"—"}</td>
+                    <td className="mono small">{ev.created_at ? new Date(ev.created_at).toLocaleDateString("th-TH") : "—"}</td>
+                    <td>
+                      {ev.status==="approved" ? <Pill kind="green">ผ่าน</Pill>
+                       : ev.status==="revise" ? <Pill kind="purple">ปรับปรุง</Pill>
+                       : <Pill kind="amber">รอตรวจ</Pill>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }
@@ -612,5 +825,5 @@ function TeacherProfile({ toast, onLogout }) {
 
 window.TEACHER_NAV = TEACHER_NAV;
 Object.assign(window, {
-  TeacherHome, TeacherReview, TeacherStudents, TeacherHistory, TeacherAnnounce, TeacherProfile,
+  TeacherHome, TeacherAssignments, TeacherReview, TeacherStudents, TeacherHistory, TeacherAnnounce, TeacherProfile,
 });

@@ -16,6 +16,7 @@ DROP TABLE IF EXISTS internship_sites        CASCADE;
 DROP TABLE IF EXISTS evaluations             CASCADE;
 DROP TABLE IF EXISTS evidence_drive_links    CASCADE;
 DROP TABLE IF EXISTS evidence_items          CASCADE;
+DROP TABLE IF EXISTS assignments             CASCADE;
 DROP TABLE IF EXISTS users                   CASCADE;
 DROP FUNCTION IF EXISTS is_evaluator()       CASCADE;
 DROP FUNCTION IF EXISTS is_staff()           CASCADE;
@@ -35,11 +36,27 @@ CREATE TABLE IF NOT EXISTS users (
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ─── Assignments (หัวข้อที่ครูตั้งให้นักเรียนส่งหลักฐาน) ──────
+CREATE TABLE IF NOT EXISTS assignments (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  teacher_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title             TEXT NOT NULL,
+  description       TEXT,
+  due_date          DATE,
+  target_grade      TEXT,
+  core_competencies TEXT[] DEFAULT '{}',
+  spec_competencies TEXT[] DEFAULT '{}',
+  status            TEXT NOT NULL DEFAULT 'open'
+                    CHECK (status IN ('open','closed')),
+  created_at        TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ─── Evidence (แฟ้มสะสมผลงาน) ────────────────────────────────
 CREATE TABLE IF NOT EXISTS evidence_items (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   assigned_teacher_id UUID REFERENCES users(id),
+  assignment_id UUID REFERENCES assignments(id) ON DELETE SET NULL,
   title         TEXT NOT NULL,
   kind          TEXT,
   date          DATE,
@@ -124,6 +141,7 @@ CREATE TABLE IF NOT EXISTS internship_applications (
 --  Row Level Security
 -- ============================================================
 ALTER TABLE users                   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE assignments             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evidence_items          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evidence_drive_links    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evaluations             ENABLE ROW LEVEL SECURITY;
@@ -147,6 +165,19 @@ CREATE POLICY "users_update_self" ON users FOR UPDATE
 DROP POLICY IF EXISTS "users_admin_write" ON users;
 CREATE POLICY "users_admin_write" ON users FOR ALL
   USING (current_user_role() = 'admin');
+
+DROP POLICY IF EXISTS "assignments_select" ON assignments;
+CREATE POLICY "assignments_select" ON assignments FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "assignments_insert" ON assignments;
+CREATE POLICY "assignments_insert" ON assignments FOR INSERT
+  WITH CHECK (is_staff());
+DROP POLICY IF EXISTS "assignments_update" ON assignments;
+CREATE POLICY "assignments_update" ON assignments FOR UPDATE
+  USING (teacher_id = auth.uid() OR current_user_role() = 'admin');
+DROP POLICY IF EXISTS "assignments_delete" ON assignments;
+CREATE POLICY "assignments_delete" ON assignments FOR DELETE
+  USING (teacher_id = auth.uid() OR current_user_role() = 'admin');
 
 DROP POLICY IF EXISTS "evidence_select" ON evidence_items;
 CREATE POLICY "evidence_select" ON evidence_items FOR SELECT

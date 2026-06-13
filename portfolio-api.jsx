@@ -57,6 +57,57 @@ const PfUsers = {
   },
 };
 
+const PfAssignments = {
+  async list() {
+    if (!_pf()) return null;
+    const { data, error } = await _pf()
+      .from('assignments')
+      .select('*, teacher:teacher_id(id,name,email)')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  async listWithSubmissions() {
+    if (!_pf()) return null;
+    const { data, error } = await _pf()
+      .from('assignments')
+      .select('*, teacher:teacher_id(id,name,email), evidence_items(id,student_id,status,created_at,student:student_id(name,student_code,grade))')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  async save({ id, teacherId, title, description, dueDate, targetGrade, core, spec, status }) {
+    if (!_pf()) return null;
+    const row = {
+      title, description: description || null,
+      due_date: dueDate || null,
+      target_grade: targetGrade || null,
+      core_competencies: core || [],
+      spec_competencies: spec || [],
+      status: status || 'open',
+    };
+    if (id) {
+      const { error } = await _pf().from('assignments').update(row).eq('id', id);
+      if (error) throw error;
+    } else {
+      row.teacher_id = teacherId;
+      const { data, error } = await _pf().from('assignments').insert(row).select().single();
+      if (error) throw error;
+      return data;
+    }
+  },
+  async remove(id) {
+    if (!_pf()) return null;
+    const { error } = await _pf().from('assignments').delete().eq('id', id);
+    if (error) throw error;
+  },
+  async setStatus(id, status) {
+    if (!_pf()) return null;
+    const { error } = await _pf().from('assignments').update({ status }).eq('id', id);
+    if (error) throw error;
+  },
+};
+
 const PfEvidence = {
   async listMine(studentId) {
     if (!_pf()) return null;
@@ -77,13 +128,14 @@ const PfEvidence = {
     if (error) throw error;
     return data;
   },
-  async create({ studentId, title, kind, date, core, spec, reflection, driveLinks, assignedTeacherId }) {
+  async create({ studentId, title, kind, date, core, spec, reflection, driveLinks, assignedTeacherId, assignmentId }) {
     if (!_pf()) return null;
     const { data: ev, error } = await _pf()
       .from('evidence_items')
       .insert({
         student_id: studentId, title, kind, date,
         assigned_teacher_id: assignedTeacherId || null,
+        assignment_id: assignmentId || null,
         core_competencies: core || [], spec_competencies: spec || [],
         reflection, status: 'pending',
       })
@@ -417,4 +469,4 @@ async function applyRubricOverrides() {
   } catch (e) { /* ignore */ }
 }
 
-Object.assign(window, { PfUsers, PfEvidence, PfEvaluations, PfInternship, PfRubrics, PfGrades, PfEnglishExams, applyRubricOverrides, computeMyLevels });
+Object.assign(window, { PfUsers, PfAssignments, PfEvidence, PfEvaluations, PfInternship, PfRubrics, PfGrades, PfEnglishExams, applyRubricOverrides, computeMyLevels });

@@ -188,6 +188,13 @@ function SetPasswordScreen({ onDone }) {
 function App() {
   const [role, setRole] = React.useState(null); // null | student | teacher | admin
   const [page, setPage] = React.useState("home");
+  const [uploadAssignment, setUploadAssignment] = React.useState(null);
+
+  const goPage = (p, assignmentData) => {
+    if (p === "upload" && assignmentData) setUploadAssignment(assignmentData);
+    else if (p !== "upload") setUploadAssignment(null);
+    setPage(p);
+  };
   const [toastMsg, ToastNode] = useToast();
 
   const [booting, setBooting] = React.useState(true);
@@ -244,9 +251,10 @@ function App() {
 
   let view = null;
   if (role === "student") {
-    if      (page === "home")       view = <StudentHome go={setPage} toast={toastMsg}/>;
+    if      (page === "home")       view = <StudentHome go={goPage} toast={toastMsg}/>;
+    else if (page === "assignments") view = <StudentAssignments toast={toastMsg} go={goPage}/>;
     else if (page === "portfolio")  view = <StudentPortfolio toast={toastMsg}/>;
-    else if (page === "upload")     view = <StudentUpload toast={toastMsg} go={setPage}/>;
+    else if (page === "upload")     view = <StudentUpload toast={toastMsg} go={goPage} assignment={uploadAssignment}/>;
     else if (page === "rubrics")    view = <StudentRubrics/>;
     else if (page === "activities") view = <StudentActivities toast={toastMsg}/>;
     else if (page === "internship") view = <StudentInternship toast={toastMsg}/>;
@@ -254,6 +262,7 @@ function App() {
     else if (page === "profile")    view = <StudentProfile toast={toastMsg} onLogout={logout}/>;
   } else if (role === "teacher") {
     if      (page === "t-home")     view = <TeacherHome go={setPage}/>;
+    else if (page === "t-assignments") view = <TeacherAssignments toast={toastMsg}/>;
     else if (page === "t-review")   view = <TeacherReview toast={toastMsg}/>;
     else if (page === "t-students") view = <TeacherStudents toast={toastMsg}/>;
     else if (page === "t-rubrics")  view = <StudentRubrics/>;
