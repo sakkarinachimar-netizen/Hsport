@@ -1,14 +1,16 @@
 name: Supabase keep-alive
 
-# ยิง query เล็ก ๆ ไปที่ Supabase REST + Auth ทุก 2 วัน
+# ยิง query เล็ก ๆ ไปที่ Supabase REST + Auth ทุกวัน
 # เพื่อกัน free-tier project ถูก auto-pause (~7 วันที่ไม่มี activity)
+# (เดิมตั้งทุก 2 วัน แต่โปรเจกต์ยัง pause อยู่ดี — ลดช่วงเวลาลงเผื่อ margin
+#  จาก GitHub Actions cron delay/skip ที่เกิดขึ้นได้)
 #
 # หมายเหตุ: anon key เป็น public key (อยู่ในเว็บที่ deploy แล้ว) — RLS คุมอยู่
 # ไม่จำเป็นต้องเก็บใน Secrets
 
 on:
   schedule:
-    - cron: '0 3 */2 * *'   # ทุก 2 วัน เวลา 03:00 UTC (10:00 ICT)
+    - cron: '0 3 * * *'   # ทุกวัน เวลา 03:00 UTC (10:00 ICT)
   workflow_dispatch: {}      # ให้กดรันมือใน Actions tab ได้
 
 jobs:
