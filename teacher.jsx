@@ -630,7 +630,7 @@ function TeacherStudents({ toast }) {
                 <td>{s.grade || "—"}</td>
                 <td className="muted small">{s.email}</td>
                 <td className="text-right">
-                  <div className="row gap-2" style={{justifyContent:"flex-end"}}>
+                  <div style={{display:"flex", flexDirection:"column", gap:8, alignItems:"flex-end"}}>
                     <button className="btn btn-ghost btn-sm" onClick={()=>openProfile(s)}>ดูภาพรวมสมรรถนะ</button>
                     <button className="btn btn-primary btn-sm" onClick={()=>openTermEval(s)}>ประเมินภาพรวมรายเทอม</button>
                   </div>
