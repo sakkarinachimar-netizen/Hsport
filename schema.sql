@@ -13,6 +13,9 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 DROP TABLE IF EXISTS internship_applications CASCADE;
 DROP TABLE IF EXISTS internship_periods      CASCADE;
 DROP TABLE IF EXISTS internship_sites        CASCADE;
+DROP TABLE IF EXISTS term_evaluation_evidence CASCADE;
+DROP TABLE IF EXISTS term_evaluations        CASCADE;
+DROP TABLE IF EXISTS self_assessments        CASCADE;
 DROP TABLE IF EXISTS evaluations             CASCADE;
 DROP TABLE IF EXISTS evidence_drive_links    CASCADE;
 DROP TABLE IF EXISTS evidence_items          CASCADE;
@@ -87,6 +90,38 @@ CREATE TABLE IF NOT EXISTS evaluations (
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ─── นักเรียนประเมินตนเอง (รายเทอม) ───────────────────────────
+CREATE TABLE IF NOT EXISTS self_assessments (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  term          TEXT NOT NULL,               -- เช่น "1/2568"
+  levels        JSONB NOT NULL DEFAULT '{}', -- { competency_key: 1-5 }
+  note          TEXT,
+  updated_at    TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (student_id, term)
+);
+
+-- ─── ครูประเมินสมรรถนะภาพรวมของนักเรียน (รายเทอม) — ครูคนใดก็ได้ ─
+CREATE TABLE IF NOT EXISTS term_evaluations (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  student_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  evaluator_id  UUID NOT NULL REFERENCES users(id),
+  term          TEXT NOT NULL,
+  levels        JSONB NOT NULL DEFAULT '{}',
+  comment       TEXT,
+  updated_at    TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (student_id, term)
+);
+
+-- ─── หลักฐานที่ครูแนบอ้างอิง (ดึงจากชิ้นงานที่นักเรียนส่งแล้ว) ─
+CREATE TABLE IF NOT EXISTS term_evaluation_evidence (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  term_evaluation_id  UUID NOT NULL REFERENCES term_evaluations(id) ON DELETE CASCADE,
+  evidence_id         UUID NOT NULL REFERENCES evidence_items(id) ON DELETE CASCADE,
+  competency_key      TEXT,   -- สมรรถนะที่หลักฐานชิ้นนี้อ้างอิง; NULL = อ้างอิงทั่วไป
+  UNIQUE (term_evaluation_id, evidence_id, competency_key)
+);
+
 -- ─── Internship sites (ตรงโครง mock ใน internship.jsx) ───────
 CREATE TABLE IF NOT EXISTS internship_sites (
   id        TEXT PRIMARY KEY,
@@ -145,6 +180,9 @@ ALTER TABLE assignments             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evidence_items          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evidence_drive_links    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE evaluations             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE self_assessments         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE term_evaluations         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE term_evaluation_evidence ENABLE ROW LEVEL SECURITY;
 ALTER TABLE internship_sites        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE internship_periods      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE internship_applications ENABLE ROW LEVEL SECURITY;
@@ -199,6 +237,11 @@ CREATE POLICY "evidence_update" ON evidence_items FOR UPDATE
 DROP POLICY IF EXISTS "evidence_delete" ON evidence_items;
 CREATE POLICY "evidence_delete" ON evidence_items FOR DELETE
   USING (student_id = auth.uid() OR current_user_role() = 'admin');
+-- staff (ครู/แอดมิน) เห็นชิ้นงานของนักเรียนทุกคนได้ (ไม่จำกัดเฉพาะที่ถูก assign)
+-- ใช้ตอนแนบหลักฐานประกอบการประเมินภาพรวมรายเทอม
+DROP POLICY IF EXISTS "evidence_items_select_staff_all" ON evidence_items;
+CREATE POLICY "evidence_items_select_staff_all" ON evidence_items FOR SELECT
+  USING (is_staff());
 
 DROP POLICY IF EXISTS "drive_select" ON evidence_drive_links;
 CREATE POLICY "drive_select" ON evidence_drive_links FOR SELECT
@@ -214,6 +257,42 @@ CREATE POLICY "eval_select" ON evaluations FOR SELECT
   USING (student_id = auth.uid() OR is_staff());
 DROP POLICY IF EXISTS "eval_write" ON evaluations;
 CREATE POLICY "eval_write" ON evaluations FOR ALL USING (is_staff());
+
+DROP POLICY IF EXISTS "self_assessments_select" ON self_assessments;
+CREATE POLICY "self_assessments_select" ON self_assessments FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "self_assessments_insert" ON self_assessments;
+CREATE POLICY "self_assessments_insert" ON self_assessments FOR INSERT
+  WITH CHECK (student_id = auth.uid());
+DROP POLICY IF EXISTS "self_assessments_update" ON self_assessments;
+CREATE POLICY "self_assessments_update" ON self_assessments FOR UPDATE
+  USING (student_id = auth.uid());
+DROP POLICY IF EXISTS "self_assessments_delete" ON self_assessments;
+CREATE POLICY "self_assessments_delete" ON self_assessments FOR DELETE
+  USING (student_id = auth.uid());
+
+DROP POLICY IF EXISTS "term_evaluations_select" ON term_evaluations;
+CREATE POLICY "term_evaluations_select" ON term_evaluations FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "term_evaluations_insert" ON term_evaluations;
+CREATE POLICY "term_evaluations_insert" ON term_evaluations FOR INSERT
+  WITH CHECK (is_staff());
+DROP POLICY IF EXISTS "term_evaluations_update" ON term_evaluations;
+CREATE POLICY "term_evaluations_update" ON term_evaluations FOR UPDATE
+  USING (is_staff());
+DROP POLICY IF EXISTS "term_evaluations_delete" ON term_evaluations;
+CREATE POLICY "term_evaluations_delete" ON term_evaluations FOR DELETE
+  USING (is_staff());
+
+DROP POLICY IF EXISTS "term_evaluation_evidence_select" ON term_evaluation_evidence;
+CREATE POLICY "term_evaluation_evidence_select" ON term_evaluation_evidence FOR SELECT
+  USING (auth.uid() IS NOT NULL);
+DROP POLICY IF EXISTS "term_evaluation_evidence_insert" ON term_evaluation_evidence;
+CREATE POLICY "term_evaluation_evidence_insert" ON term_evaluation_evidence FOR INSERT
+  WITH CHECK (is_staff());
+DROP POLICY IF EXISTS "term_evaluation_evidence_delete" ON term_evaluation_evidence;
+CREATE POLICY "term_evaluation_evidence_delete" ON term_evaluation_evidence FOR DELETE
+  USING (is_staff());
 
 DROP POLICY IF EXISTS "sites_select" ON internship_sites;
 CREATE POLICY "sites_select" ON internship_sites FOR SELECT

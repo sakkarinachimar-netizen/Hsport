@@ -256,6 +256,7 @@ function App() {
     else if (page === "portfolio")  view = <StudentPortfolio toast={toastMsg}/>;
     else if (page === "upload")     view = <StudentUpload toast={toastMsg} go={goPage} assignment={uploadAssignment}/>;
     else if (page === "rubrics")    view = <StudentRubrics/>;
+    else if (page === "term-review") view = <StudentTermReview toast={toastMsg}/>;
     else if (page === "activities") view = <StudentActivities toast={toastMsg}/>;
     else if (page === "internship") view = <StudentInternship toast={toastMsg}/>;
     else if (page === "tcas1")      view = <StudentTCAS toast={toastMsg}/>;

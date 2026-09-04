@@ -6,6 +6,7 @@ const STUDENT_NAV = [
   { key: "portfolio", label: "แฟ้มสะสมผลงาน" },
   { key: "upload", label: "อัปโหลดหลักฐาน" },
   { key: "rubrics", label: "รูบริกสมรรถนะ" },
+  { key: "term-review", label: "ประเมินภาพรวม" },
   { key: "activities", label: "กิจกรรม" },
   { key: "internship", label: "ฝึกงาน" },
   { key: "tcas1", label: "TCAS 1" },
@@ -632,6 +633,170 @@ function StudentUpload({ toast, go, assignment }) {
           </div>
         </div>
       </form>
+    </div>
+  );
+}
+
+/* ---------- ประเมินภาพรวม: ประเมินตนเอง + ดูผลประเมินจากอาจารย์รายภาคเรียน ---------- */
+function currentTermGuess() {
+  const now = new Date();
+  const by = now.getFullYear() + 543; // พ.ศ.
+  const half = now.getMonth() >= 4 && now.getMonth() <= 9 ? "1" : "2"; // พ.ค.-ต.ค. ≈ เทอม 1
+  return `${half}/${by}`;
+}
+
+function allCompsKeyByFull(full) {
+  if (!full) return "";
+  const c = [...CORE_COMPETENCIES, ...SPEC_COMPETENCIES].find(x => x.full === full);
+  return c ? c.key : "";
+}
+
+function LevelPickerRow({ label, value, onChange }) {
+  return (
+    <div className="row-between" style={{padding:"6px 0"}}>
+      <span>{label}</span>
+      <div className="row gap-2">
+        {[1,2,3,4,5].map(v => (
+          <button key={v} type="button"
+            onClick={()=>onChange(v)}
+            className="btn btn-sm"
+            title={LEVEL_NAMES[v-1].label}
+            style={{
+              background: value === v ? LEVEL_NAMES[v-1].color : "#fff",
+              color: value === v ? "#fff" : "var(--ink)",
+              border:"1px solid var(--line)", padding:"4px 12px", minWidth:36
+            }}>{v}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StudentTermReview({ toast }) {
+  const backend = !!(window.PfSelfAssessments && window.PF_SUPABASE_READY && window.pfCurrentUser);
+  const [term, setTerm] = React.useState(currentTermGuess());
+  const [selfLevels, setSelfLevels] = React.useState({});
+  const [selfNote, setSelfNote] = React.useState("");
+  const [teacherEval, setTeacherEval] = React.useState(null);
+  const [loading, setLoading] = React.useState(backend);
+  const [busy, setBusy] = React.useState(false);
+
+  const load = React.useCallback(async (t) => {
+    if (!backend) { setLoading(false); return; }
+    setLoading(true);
+    try {
+      const [mine, te] = await Promise.all([
+        window.PfSelfAssessments.get(window.pfCurrentUser.id, t),
+        window.PfTermEvaluations.get(window.pfCurrentUser.id, t),
+      ]);
+      setSelfLevels((mine && mine.levels) || {});
+      setSelfNote((mine && mine.note) || "");
+      setTeacherEval(te || null);
+    } catch (e) { toast("โหลดข้อมูลไม่สำเร็จ: " + (e.message || e)); }
+    finally { setLoading(false); }
+  }, [backend, toast]);
+
+  React.useEffect(() => { load(term); }, [term, load]);
+
+  const setLevel = (key, v) => setSelfLevels(s => ({ ...s, [key]: v }));
+
+  const save = async () => {
+    if (!backend) { toast("บันทึกได้เมื่อเชื่อมฐานข้อมูลแล้ว"); return; }
+    if (!term.trim()) { toast("กรุณาระบุภาคเรียน"); return; }
+    setBusy(true);
+    try {
+      await window.PfSelfAssessments.save({
+        studentId: window.pfCurrentUser.id, term: term.trim(),
+        levels: selfLevels, note: selfNote,
+      });
+      toast("บันทึกการประเมินตนเองเรียบร้อย");
+    } catch (e) { toast("บันทึกไม่สำเร็จ: " + (e.message || e)); }
+    finally { setBusy(false); }
+  };
+
+  const allComps = [...CORE_COMPETENCIES, ...SPEC_COMPETENCIES];
+  const teacherLevels = (teacherEval && teacherEval.levels) || {};
+  const evidenceList = (teacherEval && teacherEval.term_evaluation_evidence) || [];
+
+  return (
+    <div className="page">
+      <div className="row-between" style={{marginBottom:18, flexWrap:"wrap", gap:10}}>
+        <div>
+          <h2 className="mb-0" style={{fontSize:22}}>ประเมินภาพรวม</h2>
+          <div className="muted small">ประเมินตนเอง และดูผลประเมินสมรรถนะภาพรวมจากอาจารย์รายภาคเรียน</div>
+        </div>
+        <div className="field" style={{margin:0}}>
+          <label className="small muted">ภาคเรียน</label>
+          <input className="input mono" style={{width:140}} value={term} onChange={e=>setTerm(e.target.value)} placeholder="เช่น 1/2568"/>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="card muted" style={{textAlign:"center", padding:40}}>กำลังโหลด…</div>
+      ) : (
+      <div className="two-col">
+        <div className="card">
+          <h3 style={{marginTop:0}}>ประเมินตนเอง</h3>
+          <div className="muted small" style={{marginBottom:6}}>สมรรถนะหลัก</div>
+          {CORE_COMPETENCIES.map(c => (
+            <LevelPickerRow key={c.key} label={c.short} value={selfLevels[c.key] || 0} onChange={v=>setLevel(c.key, v)}/>
+          ))}
+          <div className="muted small mt-4" style={{marginBottom:6}}>สมรรถนะเฉพาะวิชาเอก</div>
+          {SPEC_COMPETENCIES.map(c => (
+            <LevelPickerRow key={c.key} label={c.short} value={selfLevels[c.key] || 0} onChange={v=>setLevel(c.key, v)}/>
+          ))}
+          <div className="field mt-4">
+            <label>บันทึกเพิ่มเติม</label>
+            <textarea className="textarea" value={selfNote} onChange={e=>setSelfNote(e.target.value)}
+              placeholder="สะท้อนการเรียนรู้ของตนเองในภาคเรียนนี้"/>
+          </div>
+          <button className="btn btn-primary btn-block mt-3" onClick={save} disabled={busy}>
+            {busy ? "กำลังบันทึก…" : "บันทึกการประเมินตนเอง"}
+          </button>
+        </div>
+
+        <div className="card">
+          <h3 style={{marginTop:0}}>ผลประเมินจากอาจารย์{teacherEval && teacherEval.evaluator ? ` (โดย ${teacherEval.evaluator.name})` : ""}</h3>
+          {!teacherEval ? (
+            <div className="muted" style={{padding:"30px 0", textAlign:"center"}}>ยังไม่มีการประเมินภาพรวมในภาคเรียนนี้</div>
+          ) : (
+            <>
+              <div className="radar-wrap">
+                <RadarChart labels={allComps.map(c=>c.short)} values={allComps.map(c=>teacherLevels[c.key] || 0)} max={5} size={320}/>
+              </div>
+              {teacherEval.comment && (
+                <div className="tip-box mt-3">
+                  <div className="h">ความเห็นของอาจารย์</div>
+                  <div>{teacherEval.comment}</div>
+                </div>
+              )}
+              {evidenceList.length > 0 && (
+                <>
+                  <div className="divider-h"></div>
+                  <div className="small muted" style={{marginBottom:8}}>📎 หลักฐานอ้างอิงที่อาจารย์แนบ ({evidenceList.length})</div>
+                  <div style={{display:"flex", flexDirection:"column", gap:8}}>
+                    {evidenceList.map(ev => {
+                      const compLabel = ev.competency_key && (allComps.find(c=>c.key===ev.competency_key) || {}).short;
+                      return (
+                        <div key={ev.id} className="row-between" style={{padding:"8px 12px", background:"var(--bg-soft)", borderRadius:8}}>
+                          <div>
+                            <div style={{fontWeight:600, fontSize:13.5}}>{(ev.evidence && ev.evidence.title) || "—"}</div>
+                            <div className="muted small">
+                              {(ev.evidence && ev.evidence.kind) || ""}{ev.evidence && ev.evidence.date ? " • " + ev.evidence.date : ""}
+                            </div>
+                          </div>
+                          {compLabel && <Pill kind="blue">{compLabel}</Pill>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+      )}
     </div>
   );
 }

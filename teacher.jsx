@@ -519,6 +519,70 @@ function TeacherStudents({ toast }) {
     finally { setLoadingLevels(false); }
   };
 
+  const [termEvalOf, setTermEvalOf] = React.useState(null);
+  const [teTerm, setTeTerm] = React.useState(currentTermGuess());
+  const [teLevels, setTeLevels] = React.useState({});
+  const [teComment, setTeComment] = React.useState("");
+  const [teEvidence, setTeEvidence] = React.useState([]);
+  const [teAttached, setTeAttached] = React.useState({}); // { evidenceId: competencyKey|'' }
+  const [teExistingIds, setTeExistingIds] = React.useState([]); // term_evaluation_evidence row ids ที่มีอยู่แล้ว
+  const [teLoading, setTeLoading] = React.useState(false);
+  const [teBusy, setTeBusy] = React.useState(false);
+
+  const openTermEval = async (s) => {
+    setTermEvalOf(s); setTeLoading(true);
+    setTeLevels({}); setTeComment(""); setTeEvidence([]); setTeAttached({}); setTeExistingIds([]);
+    await loadTermEval(s, teTerm);
+  };
+  const loadTermEval = async (s, term) => {
+    setTeLoading(true);
+    try {
+      const [existing, evidence] = await Promise.all([
+        window.PfTermEvaluations.get(s.id, term),
+        window.PfEvidence.listMine(s.id),
+      ]);
+      setTeLevels((existing && existing.levels) || {});
+      setTeComment((existing && existing.comment) || "");
+      setTeEvidence(evidence || []);
+      const rows = (existing && existing.term_evaluation_evidence) || [];
+      setTeExistingIds(rows.map(r => r.id));
+      const attached = {};
+      rows.forEach(r => { attached[r.evidence_id] = r.competency_key || ""; });
+      setTeAttached(attached);
+    } catch (e) { toast("โหลดข้อมูลการประเมินไม่สำเร็จ: " + (e.message||e)); }
+    finally { setTeLoading(false); }
+  };
+  const changeTeTerm = (t) => { setTeTerm(t); if (termEvalOf) loadTermEval(termEvalOf, t); };
+  const setTeLevel = (key, v) => setTeLevels(s => ({ ...s, [key]: v }));
+  const toggleTeEvidence = (evidenceId, defaultComp) => {
+    setTeAttached(s => {
+      const next = { ...s };
+      if (evidenceId in next) delete next[evidenceId];
+      else next[evidenceId] = defaultComp || "";
+      return next;
+    });
+  };
+  const setTeEvidenceComp = (evidenceId, comp) => setTeAttached(s => ({ ...s, [evidenceId]: comp }));
+
+  const saveTermEval = async () => {
+    if (!termEvalOf) return;
+    if (!teTerm.trim()) { toast("กรุณาระบุภาคเรียน"); return; }
+    setTeBusy(true);
+    try {
+      const row = await window.PfTermEvaluations.save({
+        studentId: termEvalOf.id, evaluatorId: window.pfCurrentUser.id,
+        term: teTerm.trim(), levels: teLevels, comment: teComment,
+      });
+      await Promise.all(teExistingIds.map(id => window.PfTermEvaluations.detachEvidence(id)));
+      await Promise.all(Object.entries(teAttached).map(([evidenceId, comp]) =>
+        window.PfTermEvaluations.attachEvidence(row.id, evidenceId, comp || null)
+      ));
+      toast("บันทึกการประเมินภาพรวมเรียบร้อย");
+      setTermEvalOf(null);
+    } catch (e) { toast("บันทึกไม่สำเร็จ: " + (e.message||e)); }
+    finally { setTeBusy(false); }
+  };
+
   const radarLabels = [
     ...CORE_COMPETENCIES.map(c => c.short),
     ...SPEC_COMPETENCIES.map(c => c.short),
@@ -566,7 +630,10 @@ function TeacherStudents({ toast }) {
                 <td>{s.grade || "—"}</td>
                 <td className="muted small">{s.email}</td>
                 <td className="text-right">
-                  <button className="btn btn-ghost btn-sm" onClick={()=>openProfile(s)}>ดูภาพรวมสมรรถนะ</button>
+                  <div className="row gap-2" style={{justifyContent:"flex-end"}}>
+                    <button className="btn btn-ghost btn-sm" onClick={()=>openProfile(s)}>ดูภาพรวมสมรรถนะ</button>
+                    <button className="btn btn-primary btn-sm" onClick={()=>openTermEval(s)}>ประเมินภาพรวมรายเทอม</button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -692,6 +759,85 @@ function TeacherStudents({ toast }) {
                 </table>
               )}
             </>
+          )}
+        </Modal>
+      )}
+
+      {termEvalOf && (
+        <Modal title={`ประเมินภาพรวมรายเทอม: ${termEvalOf.name}`} onClose={()=>setTermEvalOf(null)} width={820}
+          footer={<>
+            <button className="btn btn-ghost" onClick={()=>setTermEvalOf(null)}>ยกเลิก</button>
+            <button className="btn btn-primary" onClick={saveTermEval} disabled={teBusy || teLoading}>
+              {teBusy ? "กำลังบันทึก…" : "บันทึกการประเมิน"}
+            </button>
+          </>}>
+          <div className="field" style={{maxWidth:200}}>
+            <label>ภาคเรียน</label>
+            <input className="input mono" value={teTerm} onChange={e=>changeTeTerm(e.target.value)} placeholder="เช่น 1/2568"/>
+          </div>
+
+          {teLoading ? (
+            <div className="muted" style={{padding:30,textAlign:"center"}}>กำลังโหลด…</div>
+          ) : (
+          <>
+            <div className="divider-h"></div>
+            <div style={{fontWeight:600, marginBottom:8}}>ระดับสมรรถนะภาพรวมทั้งเทอม (1–5)</div>
+            <div className="muted small" style={{marginBottom:6}}>สมรรถนะหลัก</div>
+            {CORE_COMPETENCIES.map(c => (
+              <LevelPickerRow key={c.key} label={c.short} value={teLevels[c.key] || 0} onChange={v=>setTeLevel(c.key, v)}/>
+            ))}
+            <div className="muted small mt-3" style={{marginBottom:6}}>สมรรถนะเฉพาะวิชาเอก</div>
+            {SPEC_COMPETENCIES.map(c => (
+              <LevelPickerRow key={c.key} label={c.short} value={teLevels[c.key] || 0} onChange={v=>setTeLevel(c.key, v)}/>
+            ))}
+
+            <div className="field mt-3">
+              <label>ความเห็นภาพรวม</label>
+              <textarea className="textarea" placeholder="สรุปพัฒนาการของนักเรียนตลอดภาคเรียนนี้"
+                value={teComment} onChange={e=>setTeComment(e.target.value)}/>
+            </div>
+
+            <div className="divider-h"></div>
+            <div style={{fontWeight:600, marginBottom:4}}>แนบหลักฐานอ้างอิงสมรรถนะ</div>
+            <div className="muted small" style={{marginBottom:10}}>เลือกจากชิ้นงานที่นักเรียนส่งไว้แล้ว เพื่อใช้อ้างอิงประกอบการประเมินภาพรวม</div>
+            {teEvidence.length === 0 ? (
+              <div className="muted small" style={{padding:14, background:"var(--bg-soft)", borderRadius:8}}>
+                นักเรียนคนนี้ยังไม่มีหลักฐานที่ส่งในระบบ
+              </div>
+            ) : (
+              <div style={{display:"flex", flexDirection:"column", gap:8}}>
+                {teEvidence.map(ev => {
+                  const tags = [...(ev.core_competencies||[]), ...(ev.spec_competencies||[])];
+                  const checked = ev.id in teAttached;
+                  const defaultComp = allCompsKeyByFull(tags[0]);
+                  return (
+                    <div key={ev.id} className="row-between" style={{padding:"8px 12px", background:"var(--bg-soft)", borderRadius:8, alignItems:"flex-start"}}>
+                      <label className="row gap-2" style={{alignItems:"flex-start", cursor:"pointer"}}>
+                        <input type="checkbox" checked={checked} onChange={()=>toggleTeEvidence(ev.id, defaultComp)} style={{marginTop:4}}/>
+                        <div>
+                          <div style={{fontWeight:600, fontSize:13.5}}>{ev.title}</div>
+                          <div className="muted small">{ev.kind || ""}{ev.date ? " • " + ev.date : ""}</div>
+                          {tags.length > 0 && (
+                            <div className="tags mt-2">{tags.map((t,i)=><Pill key={i} kind="blue">{t}</Pill>)}</div>
+                          )}
+                        </div>
+                      </label>
+                      {checked && (
+                        <select className="select" style={{width:220}}
+                          value={teAttached[ev.id] || ""}
+                          onChange={e=>setTeEvidenceComp(ev.id, e.target.value)}>
+                          <option value="">— อ้างอิงทั่วไป —</option>
+                          {[...CORE_COMPETENCIES, ...SPEC_COMPETENCIES].map(c => (
+                            <option key={c.key} value={c.key}>{c.short}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
           )}
         </Modal>
       )}

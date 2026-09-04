@@ -179,6 +179,89 @@ const PfEvaluations = {
   },
 };
 
+const PfSelfAssessments = {
+  async listMine(studentId) {
+    if (!_pf()) return null;
+    const { data, error } = await _pf()
+      .from('self_assessments')
+      .select('*')
+      .eq('student_id', studentId)
+      .order('term', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  async get(studentId, term) {
+    if (!_pf()) return null;
+    const { data, error } = await _pf()
+      .from('self_assessments')
+      .select('*')
+      .eq('student_id', studentId).eq('term', term)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  async save({ studentId, term, levels, note }) {
+    if (!_pf()) return null;
+    const { data, error } = await _pf()
+      .from('self_assessments')
+      .upsert({
+        student_id: studentId, term, levels: levels || {}, note: note || null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'student_id,term' })
+      .select().single();
+    if (error) throw error;
+    return data;
+  },
+};
+
+const PfTermEvaluations = {
+  async get(studentId, term) {
+    if (!_pf()) return null;
+    const { data, error } = await _pf()
+      .from('term_evaluations')
+      .select('*, term_evaluation_evidence(*, evidence:evidence_id(id,title,kind,date)), evaluator:evaluator_id(id,name)')
+      .eq('student_id', studentId).eq('term', term)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+  async listByStudent(studentId) {
+    if (!_pf()) return null;
+    const { data, error } = await _pf()
+      .from('term_evaluations')
+      .select('*, term_evaluation_evidence(*, evidence:evidence_id(id,title,kind,date)), evaluator:evaluator_id(id,name)')
+      .eq('student_id', studentId)
+      .order('term', { ascending: false });
+    if (error) throw error;
+    return data;
+  },
+  async save({ studentId, evaluatorId, term, levels, comment }) {
+    if (!_pf()) return null;
+    const { data, error } = await _pf()
+      .from('term_evaluations')
+      .upsert({
+        student_id: studentId, evaluator_id: evaluatorId, term,
+        levels: levels || {}, comment: comment || null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'student_id,term' })
+      .select().single();
+    if (error) throw error;
+    return data;
+  },
+  async attachEvidence(termEvaluationId, evidenceId, competencyKey) {
+    if (!_pf()) return null;
+    const { error } = await _pf()
+      .from('term_evaluation_evidence')
+      .insert({ term_evaluation_id: termEvaluationId, evidence_id: evidenceId, competency_key: competencyKey || null });
+    if (error) throw error;
+  },
+  async detachEvidence(id) {
+    if (!_pf()) return null;
+    const { error } = await _pf().from('term_evaluation_evidence').delete().eq('id', id);
+    if (error) throw error;
+  },
+};
+
 const PfInternship = {
   async sites() {
     if (!_pf()) return null;
@@ -469,4 +552,4 @@ async function applyRubricOverrides() {
   } catch (e) { /* ignore */ }
 }
 
-Object.assign(window, { PfUsers, PfAssignments, PfEvidence, PfEvaluations, PfInternship, PfRubrics, PfGrades, PfEnglishExams, applyRubricOverrides, computeMyLevels });
+Object.assign(window, { PfUsers, PfAssignments, PfEvidence, PfEvaluations, PfSelfAssessments, PfTermEvaluations, PfInternship, PfRubrics, PfGrades, PfEnglishExams, applyRubricOverrides, computeMyLevels });
