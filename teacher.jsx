@@ -651,7 +651,7 @@ function TeacherStudents({ toast }) {
           {loadingLevels ? (
             <div className="muted" style={{padding:30,textAlign:"center"}}>กำลังคำนวณ…</div>
           ) : evaluatedCount === 0 ? (
-            <div className="muted" style={{padding:30,textAlign:"center"}}>นักเรียนคนนี้ยังไม่มีหลักฐานที่ได้รับการประเมิน</div>
+            <div className="muted" style={{padding:30,textAlign:"center"}}>นักเรียนคนนี้ยังไม่มีข้อมูลการประเมินสมรรถนะ (ชิ้นงาน / ประเมินตนเอง / ประเมินภาพรวมรายเทอม)</div>
           ) : (
           <div className="two-col">
             <div>

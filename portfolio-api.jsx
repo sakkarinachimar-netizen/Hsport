@@ -509,28 +509,53 @@ const PfRubrics = {
   },
 };
 
-// คำนวณระดับสมรรถนะของนักเรียนจาก evaluations ใน DB
+// เลือกแถวที่ updated_at ล่าสุดจากลิสต์ (self_assessments / term_evaluations แต่ละรายการมีได้หลายเทอม)
+function _latestByUpdatedAt(rows) {
+  return (rows || []).reduce((best, r) =>
+    (!best || (r.updated_at || "") > (best.updated_at || "")) ? r : best, null);
+}
+
+// คำนวณระดับสมรรถนะของนักเรียน = ค่าเฉลี่ยของ 3 แหล่ง (เท่าที่มี) ต่อสมรรถนะ:
+//  1) คะแนนจากชิ้นงานที่ครูตรวจให้ (evaluations ผูกกับ evidence_items)
+//  2) คะแนนประเมินตนเองของนักเรียน (self_assessments, เทอมล่าสุด)
+//  3) คะแนนประเมินภาพรวมรายเทอมจากครู (term_evaluations, เทอมล่าสุด)
 // คืน { key → ระดับเฉลี่ย 1-5, ปัดเศษ }
 async function computeMyLevels(studentId) {
   if (!window.PfEvidence) return {};
-  let rows;
-  try { rows = await window.PfEvidence.listMine(studentId); }
-  catch (e) { return {}; }
-  const fullToKey = {};
-  [...(window.CORE_COMPETENCIES||[]), ...(window.SPEC_COMPETENCIES||[])]
-    .forEach(c => { fullToKey[c.full] = c.key; });
   const buckets = {};
-  (rows || []).forEach(ev => {
-    const comps = [...(ev.core_competencies||[]), ...(ev.spec_competencies||[])];
-    const evals = (ev.evaluations || []).map(e => e.score).filter(s => s != null);
-    if (!evals.length) return;
-    const avg = evals.reduce((a,b)=>a+b,0) / evals.length;
-    comps.forEach(full => {
-      const key = fullToKey[full];
-      if (!key) return;
-      (buckets[key] = buckets[key] || []).push(avg);
+  const push = (key, val) => {
+    const v = Number(val);
+    if (key && v > 0) (buckets[key] = buckets[key] || []).push(v);
+  };
+
+  try {
+    const rows = await window.PfEvidence.listMine(studentId);
+    const fullToKey = {};
+    [...(window.CORE_COMPETENCIES||[]), ...(window.SPEC_COMPETENCIES||[])]
+      .forEach(c => { fullToKey[c.full] = c.key; });
+    (rows || []).forEach(ev => {
+      const comps = [...(ev.core_competencies||[]), ...(ev.spec_competencies||[])];
+      const evals = (ev.evaluations || []).map(e => e.score).filter(s => s != null);
+      if (!evals.length) return;
+      const avg = evals.reduce((a,b)=>a+b,0) / evals.length;
+      comps.forEach(full => push(fullToKey[full], avg));
     });
-  });
+  } catch (e) { /* ignore */ }
+
+  try {
+    if (window.PfSelfAssessments) {
+      const latest = _latestByUpdatedAt(await window.PfSelfAssessments.listMine(studentId));
+      if (latest && latest.levels) Object.entries(latest.levels).forEach(([k, v]) => push(k, v));
+    }
+  } catch (e) { /* ignore */ }
+
+  try {
+    if (window.PfTermEvaluations) {
+      const latest = _latestByUpdatedAt(await window.PfTermEvaluations.listByStudent(studentId));
+      if (latest && latest.levels) Object.entries(latest.levels).forEach(([k, v]) => push(k, v));
+    }
+  } catch (e) { /* ignore */ }
+
   const out = {};
   Object.entries(buckets).forEach(([k, arr]) => {
     out[k] = Math.round(arr.reduce((a,b)=>a+b,0) / arr.length);
